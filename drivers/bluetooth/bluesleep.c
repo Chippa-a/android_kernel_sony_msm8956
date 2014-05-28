@@ -225,9 +225,9 @@ static void bluesleep_sleep_work(struct work_struct *work)
 			/*Deactivating UART */
 			hsuart_power(HS_UART_OFF);
 			/* UART clk is not turned off immediately. Release
-			 * wakelock after 500 ms.
+			 * wakelock after 125 ms.
 			 */
-			__pm_wakeup_event(&bsi->wake_lock, HZ / 2);
+			__pm_wakeup_event(&bsi->wake_lock, HZ / 8);
 		} else {
 			pr_err("This should never happen.\n");
 			return;
@@ -419,7 +419,7 @@ static void bluesleep_stop(void)
 	atomic_inc(&open_count);
 
 	enable_wakeup_irq(0);
-	__pm_wakeup_event(&bsi->wake_lock, HZ / 2);
+	__pm_wakeup_event(&bsi->wake_lock, HZ / 8);
 }
 
 void bluesleep_setup_uart_port(struct platform_device *uart_dev)
