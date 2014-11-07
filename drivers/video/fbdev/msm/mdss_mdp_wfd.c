@@ -229,7 +229,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 		goto wfd_setup_error;
 	}
 
-	if (ctl->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF ||
+	if (ctl->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK ||
 			ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) {
 		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
 	} else {
