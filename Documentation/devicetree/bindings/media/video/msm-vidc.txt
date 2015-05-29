@@ -14,6 +14,7 @@ Optional properties:
 - reg : offset and length of the register set for the device.
 - sku-index : sku version of the hardware.
 - interrupts : should contain the vidc interrupt.
+- qcom,clock-voltage-tbl : clock and corresponding cx voltage index.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
