@@ -62,6 +62,7 @@ struct pll_config_masks {
 struct pll_config_vals {
 	u32 post_div_masked;
 	u32 pre_div_masked;
+	u32 vco_mode_masked;
 	u32 config_ctl_val;
 	u32 config_ctl_hi_val;
 	u32 test_ctl_lo_val;
@@ -74,6 +75,13 @@ struct pll_spm_ctrl {
 	u32 offset;
 	u32 event_bit;
 	void __iomem *spm_base;
+};
+
+struct pll_vco_data {
+	unsigned long min_freq;
+	unsigned long max_freq;
+	u32 vco_val;
+	u32 config_ctl_val;
 };
 
 #define PLL_FREQ_END	(UINT_MAX-1)
@@ -135,6 +143,8 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  * @vals: configuration values to be written to PLL registers
  * @freq_tbl: pll freq table
  * @no_prepared_reconfig: Fail round_rate if pll is prepared
+ * @pll_vco_data: If any VCO setting is required at runtime when frequencies
+ *		 are modified.
  * @c: clk
  * @base: pointer to base address of ioremapped registers.
  */
@@ -167,6 +177,8 @@ struct pll_clk {
 	bool inited;
 	bool no_prepared_reconfig;
 
+	struct pll_vco_data data;
+
 	struct pll_spm_ctrl spm_ctrl;
 	struct clk c;
 
@@ -178,6 +190,8 @@ extern const struct clk_ops clk_ops_sr2_pll;
 extern const struct clk_ops clk_ops_acpu_pll;
 extern const struct clk_ops clk_ops_variable_rate_pll;
 extern const struct clk_ops clk_ops_variable_rate_pll_hwfsm;
+extern const struct clk_ops clk_ops_hf_pll;
+extern const struct clk_ops clk_ops_sr_pll;
 
 void __variable_rate_pll_init(struct clk *c);
 
