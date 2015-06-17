@@ -1306,6 +1306,10 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->ahb_clk);
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
+	if (sdata->tbu_clk)
+		devm_clk_put(dev, sdata->tbu_clk);
+	if (sdata->tbu_rt_clk)
+		devm_clk_put(dev, sdata->tbu_rt_clk);
 }
 
 int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy)
@@ -1452,6 +1456,18 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 		sdata->mmss_misc_ahb_clk = NULL;
 		pr_debug("%s: Unable to get mmss misc ahb clk\n",
 			__func__);
+	}
+
+	sdata->tbu_clk = devm_clk_get(dev, "tbu_clk");
+	if (IS_ERR(sdata->tbu_clk)) {
+		pr_debug("%s: can't find mdp tbu clk. rc=%d\n", __func__, rc);
+		sdata->tbu_clk = NULL;
+	}
+
+	sdata->tbu_rt_clk = devm_clk_get(dev, "tbu_rt_clk");
+	if (IS_ERR(sdata->tbu_rt_clk)) {
+		pr_debug("%s: can't find mdp tbu_rt clk rc=%d\n", __func__, rc);
+		sdata->tbu_rt_clk = NULL;
 	}
 
 error:
