@@ -132,6 +132,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	struct mdss_mdp_format_params *fmt = NULL;
 	int ret = 0;
 	u32 width, height, max_mixer_width;
+	int intf_type, needs_split;
 
 	if (!ctl)
 		return -EINVAL;
@@ -170,6 +171,8 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	ctl->roi =  (struct mdss_rect) {0, 0, width, height};
 	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
 
+	mdss_mdp_get_interface_type(ctl, &intf_type, &needs_split);
+
 	fmt = mdss_mdp_get_format_params(layer->buffer.format);
 
 	if (fmt == NULL) {
@@ -196,18 +199,19 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 		ctl->csc_type = MDSS_MDP_CSC_RGB2RGB;
 	}
 
-	if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE) {
+	if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE ||
+			ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTF_NO_DSPP) {
 		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
-			MDSS_MDP_MIXER_TYPE_INTF, (width > max_mixer_width), 0);
-		if (width > max_mixer_width) {
+			intf_type, needs_split, 0);
+		if (needs_split) {
 			ctl->mixer_right = mdss_mdp_mixer_alloc(ctl,
-				MDSS_MDP_MIXER_TYPE_INTF, true, 0);
+				intf_type, true, 0);
 			ctl->mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 			width = width / 2;
 		} else {
 			ctl->mfd->split_mode = MDP_SPLIT_MODE_NONE;
 		}
-	} else if (width > max_mixer_width) {
+	} else if (needs_split) {
 		pr_err("width > max_mixer_width supported only in MDSS_MDP_WB_INTF\n");
 		goto wfd_setup_error;
 	} else if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) {
