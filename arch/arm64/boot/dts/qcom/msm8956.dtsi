@@ -101,6 +101,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
+			alignment = <0 0x400000>;
 			size = <0 0x0800000>;
 		};
 
@@ -108,6 +109,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			alignment = <0 0x400000>;
 			size = <0 0x8000000>;
 		};
 
@@ -115,6 +117,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			alignment = <0 0x400000>;
 			size = <0 0x1000000>;
 		};
 
@@ -122,6 +125,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			alignment = <0 0x400000>;
 			size = <0 0x400000>;
 		};
 
@@ -129,6 +133,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			alignment = <0 0x400000>;
 			size = <0 0x400000>;
 		};
 	};
