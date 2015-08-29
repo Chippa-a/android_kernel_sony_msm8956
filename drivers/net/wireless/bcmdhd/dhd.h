@@ -531,7 +531,7 @@ typedef struct dhd_pub {
 	 * implement below functions in each platform if needed.
 	 */
 	/* platform specific function whether to skip flow control */
-	bool (*skip_fc)(void);
+	bool (*skip_fc)(void *dhdp, uint8 ifx);
 	/* platform specific function for wlfc_enable and wlfc_deinit */
 	void (*plat_init)(void *dhd);
 	void (*plat_deinit)(void *dhd);
@@ -1257,6 +1257,8 @@ extern int dhd_do_driver_init(struct net_device *net);
 extern int dhd_event_ifadd(struct dhd_info *dhd, struct wl_event_data_if *ifevent,
 	char *name, uint8 *mac);
 extern int dhd_event_ifdel(struct dhd_info *dhd, struct wl_event_data_if *ifevent,
+	char *name, uint8 *mac);
+extern int dhd_event_ifchange(struct dhd_info *dhd, struct wl_event_data_if *ifevent,
 	char *name, uint8 *mac);
 extern struct net_device* dhd_allocate_if(dhd_pub_t *dhdpub, int ifidx, char *name,
 	uint8 *mac, uint8 bssidx, bool need_rtnl_lock, char *dngl_name);

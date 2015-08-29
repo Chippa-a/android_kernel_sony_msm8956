@@ -933,7 +933,7 @@ _dhd_wlfc_flow_control_check(athost_wl_status_info_t* ctx, struct pktq* pq, uint
 	dhdp = (dhd_pub_t *)ctx->dhdp;
 	ASSERT(dhdp);
 
-	if (dhdp->skip_fc && dhdp->skip_fc())
+	if (dhdp->skip_fc && dhdp->skip_fc((void *)dhdp, if_id))
 		return;
 
 	if ((ctx->hostif_flow_state[if_id] == OFF) && !_dhd_wlfc_allow_fc(ctx, if_id))
