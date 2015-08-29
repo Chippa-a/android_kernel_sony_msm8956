@@ -1218,8 +1218,7 @@ wl_get_netinfo_by_wdev(struct bcm_cfg80211 *cfg, struct wireless_dev *wdev)
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)) */
 
 extern s32 wl_cfg80211_attach(struct net_device *ndev, void *context);
-extern s32 wl_cfg80211_attach_post(struct net_device *ndev);
-extern void wl_cfg80211_detach(void *para);
+extern void wl_cfg80211_detach(struct bcm_cfg80211 *cfg);
 
 extern void wl_cfg80211_event(struct net_device *ndev, const wl_event_msg_t *e,
             void *data);
@@ -1230,21 +1229,22 @@ struct device *wl_cfg80211_get_parent_dev(void);
 extern s32 wl_cfg80211_clear_mgmt_vndr_ies(struct bcm_cfg80211 *cfg);
 extern s32 wl_cfg80211_clear_per_bss_ies(struct bcm_cfg80211 *cfg, s32 bssidx);
 
-extern s32 wl_cfg80211_up(void *para);
-extern s32 wl_cfg80211_down(void *para);
-extern s32 wl_cfg80211_notify_ifadd(int ifidx, char *name, uint8 *mac, uint8 bssidx);
-extern s32 wl_cfg80211_notify_ifdel(int ifidx, char *name, uint8 *mac, uint8 bssidx);
-extern s32 wl_cfg80211_notify_ifchange(int ifidx, char *name, uint8 *mac, uint8 bssidx);
+extern s32 wl_cfg80211_up(struct net_device *net);
+extern s32 wl_cfg80211_down(struct net_device *net);
+extern s32 wl_cfg80211_notify_ifadd(struct net_device *dev, int ifidx, char *name, uint8 *mac, uint8 bssidx);
+extern s32 wl_cfg80211_notify_ifdel(struct net_device *dev, int ifidx, char *name, uint8 *mac, uint8 bssidx);
+extern s32 wl_cfg80211_notify_ifchange(struct net_device *dev, int ifidx, char *name, uint8 *mac, uint8 bssidx);
 extern struct net_device* wl_cfg80211_allocate_if(struct bcm_cfg80211 *cfg, int ifidx, char *name,
 	uint8 *mac, uint8 bssidx, char *dngl_name);
 extern int wl_cfg80211_register_if(struct bcm_cfg80211 *cfg, int ifidx, struct net_device* ndev);
 extern int wl_cfg80211_remove_if(struct bcm_cfg80211 *cfg, int ifidx, struct net_device* ndev);
-extern int wl_cfg80211_scan_stop(bcm_struct_cfgdev *cfgdev);
-extern bool wl_cfg80211_is_concurrent_mode(void);
-extern void* wl_cfg80211_get_dhdp(void);
-extern bool wl_cfg80211_is_p2p_active(void);
-extern bool wl_cfg80211_is_roam_offload(void);
-extern bool wl_cfg80211_is_event_from_connected_bssid(const wl_event_msg_t *e, int ifidx);
+extern int wl_cfg80211_scan_stop(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev);
+extern bool wl_cfg80211_is_concurrent_mode(struct net_device *dev);
+extern void* wl_cfg80211_get_dhdp(struct net_device *dev);
+extern bool wl_cfg80211_is_p2p_active(struct net_device *dev);
+extern bool wl_cfg80211_is_roam_offload(struct net_device *dev);
+extern bool wl_cfg80211_is_event_from_connected_bssid(struct net_device *dev,
+		const wl_event_msg_t *e, int ifidx);
 extern void wl_cfg80211_dbg_level(u32 level);
 extern s32 wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr);
 extern s32 wl_cfg80211_set_p2p_noa(struct net_device *net, char* buf, int len);
@@ -1261,6 +1261,7 @@ extern s32 wl_cfg80211_set_ulb_bw(struct net_device *dev,
 #ifdef P2PLISTEN_AP_SAMECHN
 extern s32 wl_cfg80211_set_p2p_resp_ap_chn(struct net_device *net, s32 enable);
 #endif /* P2PLISTEN_AP_SAMECHN */
+extern struct bcm_cfg80211 *wl_get_cfg(struct net_device *ndev);
 
 /* btcoex functions */
 void* wl_cfg80211_btcoex_init(struct net_device *ndev);
@@ -1287,7 +1288,7 @@ void wl_cfg80211_enable_trace(bool set, u32 level);
 extern s32 wl_update_wiphybands(struct bcm_cfg80211 *cfg, bool notify);
 extern s32 wl_cfg80211_if_is_group_owner(void);
 extern chanspec_t wl_chspec_host_to_driver(chanspec_t chanspec);
-extern chanspec_t wl_ch_host_to_driver(s32 bssidx, u16 channel);
+extern chanspec_t wl_ch_host_to_driver(struct bcm_cfg80211 *cfg, s32 bssidx, u16 channel);
 extern s32 wl_set_tx_power(struct net_device *dev,
 	enum nl80211_tx_power_setting type, s32 dbm);
 extern s32 wl_get_tx_power(struct net_device *dev, s32 *dbm);
@@ -1302,7 +1303,7 @@ extern s32 wl_cfg80211_apply_eventbuffer(struct net_device *ndev,
 extern void get_primary_mac(struct bcm_cfg80211 *cfg, struct ether_addr *mac);
 extern void wl_cfg80211_update_power_mode(struct net_device *dev);
 extern void wl_cfg80211_set_passive_scan(struct net_device *dev, char *command);
-extern void wl_terminate_event_handler(void);
+extern void wl_terminate_event_handler(struct net_device *dev);
 #define SCAN_BUF_CNT	2
 #define SCAN_BUF_NEXT	1
 #define WL_SCANTYPE_LEGACY	0x1
@@ -1314,18 +1315,18 @@ extern void wl_terminate_event_handler(void);
 #define wl_escan_print_sync_id(a, b, c)
 #define wl_escan_increment_sync_id(a, b)
 #define wl_escan_init_sync_id(a)
-extern void wl_cfg80211_ibss_vsie_set_buffer(vndr_ie_setbuf_t *ibss_vsie, int ibss_vsie_len);
+extern void wl_cfg80211_ibss_vsie_set_buffer(struct net_device *dev, vndr_ie_setbuf_t *ibss_vsie, int ibss_vsie_len);
 extern s32 wl_cfg80211_ibss_vsie_delete(struct net_device *dev);
 #ifdef WLAIBSS
-extern void wl_cfg80211_set_txfail_pid(int pid);
+extern void wl_cfg80211_set_txfail_pid(struct net_device *dev, int pid);
 #endif /* WLAIBSS */
-extern void wl_cfg80211_set_rmc_pid(int pid);
+extern void wl_cfg80211_set_rmc_pid(struct net_device *dev, int pid);
 extern int wl_cfg80211_set_mgmt_vndr_ies(struct bcm_cfg80211 *cfg,
 	bcm_struct_cfgdev *cfgdev, s32 bssidx, s32 pktflag,
 	const u8 *vndr_ie, u32 vndr_ie_len);
 
 #ifdef WLFBT
-extern void wl_cfg80211_get_fbt_key(uint8 *key);
+extern void wl_cfg80211_get_fbt_key(struct net_device *dev, uint8 *key);
 #endif
 
 /* Action frame specific functions */
@@ -1375,12 +1376,12 @@ extern int wl_cfg80211_interface_delete(struct net_device *dev, char *name);
 
 
 #ifdef WL_CFG80211_P2P_DEV_IF
-extern void wl_cfg80211_del_p2p_wdev(void);
+extern void wl_cfg80211_del_p2p_wdev(struct net_device *dev);
 #endif /* WL_CFG80211_P2P_DEV_IF */
 
 #if (defined(STBLINUX) && defined(WL_CFG80211))
 
-int wl_cfg80211_cleanup(void);
+int wl_cfg80211_cleanup(struct bcm_cfg80211 *cfg);
 
 #endif /* STBLINUX && WL_CFG80211 */
 
@@ -1399,7 +1400,7 @@ do {                                    \
 } while (0)
 
 #ifdef QOS_MAP_SET
-extern uint8 *wl_get_up_table(void);
+extern uint8 *wl_get_up_table(dhd_pub_t *dhdp, int ifidx);
 #endif /* QOS_MAP_SET */
 
 #endif /* _wl_cfg80211_h_ */

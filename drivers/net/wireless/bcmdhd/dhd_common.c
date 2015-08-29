@@ -1853,10 +1853,8 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint16 pktlen,
 				dhd_event_ifdel(dhd_pub->info, ifevent, event->ifname,
 					event->addr.octet);
 			} else if (ifevent->opcode == WLC_E_IF_CHANGE) {
-#ifdef WL_CFG80211
-				wl_cfg80211_notify_ifchange(ifevent->ifidx,
-					event->ifname, event->addr.octet, ifevent->bssidx);
-#endif /* WL_CFG80211 */
+				dhd_event_ifchange(dhd_pub->info, ifevent, event->ifname,
+					event->addr.octet);
 			}
 		} else {
 #if !defined(PROP_TXSTATUS) && !defined(PCIE_FULL_DONGLE) && defined(WL_CFG80211)
@@ -1927,8 +1925,10 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint16 pktlen,
 			uint8 role = dhd_flow_rings_ifindex2role(dhd_pub, ifindex);
 			uint8 del_sta = TRUE;
 #ifdef WL_CFG80211
-			if (role == WLC_E_IF_ROLE_STA && !wl_cfg80211_is_roam_offload() &&
-				!wl_cfg80211_is_event_from_connected_bssid(event, *ifidx)) {
+			if (role == WLC_E_IF_ROLE_STA &&
+				!wl_cfg80211_is_roam_offload(dhd_idx2net(dhd_pub, ifindex)) &&
+					!wl_cfg80211_is_event_from_connected_bssid(
+						dhd_idx2net(dhd_pub, ifindex), event, *ifidx)) {
 				del_sta = FALSE;
 			}
 #endif /* WL_CFG80211 */

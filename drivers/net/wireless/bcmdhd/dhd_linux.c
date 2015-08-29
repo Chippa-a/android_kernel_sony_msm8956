@@ -268,7 +268,7 @@ MODULE_LICENSE("GPL and additional rights");
 #endif
 
 #ifdef PROP_TXSTATUS
-extern bool dhd_wlfc_skip_fc(void);
+extern bool dhd_wlfc_skip_fc(void *dhdp, uint8 idx);
 extern void dhd_wlfc_plat_init(void *dhd);
 extern void dhd_wlfc_plat_deinit(void *dhd);
 #endif /* PROP_TXSTATUS */
@@ -3558,7 +3558,7 @@ __dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 #endif 
 		{
 #if defined(QOS_MAP_SET)
-			pktsetprio_qms(pktbuf, wl_get_up_table(), FALSE);
+			pktsetprio_qms(pktbuf, wl_get_up_table(dhdp, ifidx), FALSE);
 #else
 			pktsetprio(pktbuf, FALSE);
 #endif /* QOS_MAP_SET */
@@ -5564,7 +5564,7 @@ dhd_stop(struct net_device *net)
 #ifdef WL_CFG80211
 	if (ifidx == 0) {
 		dhd_if_t *ifp;
-		wl_cfg80211_down(NULL);
+		wl_cfg80211_down(net);
 
 		ifp = dhd->iflist[0];
 		ASSERT(ifp && ifp->net);
@@ -5578,7 +5578,7 @@ dhd_stop(struct net_device *net)
 				int i;
 
 #ifdef WL_CFG80211_P2P_DEV_IF
-				wl_cfg80211_del_p2p_wdev();
+				wl_cfg80211_del_p2p_wdev(net);
 #endif /* WL_CFG80211_P2P_DEV_IF */
 
 				dhd_net_if_lock_local(dhd);
@@ -5802,7 +5802,7 @@ dhd_open(struct net_device *net)
 #endif /* TOE */
 
 #if defined(WL_CFG80211)
-		if (unlikely(wl_cfg80211_up(NULL))) {
+		if (unlikely(wl_cfg80211_up(net))) {
 			DHD_ERROR(("%s: failed to bring up cfg80211\n", __FUNCTION__));
 			ret = -1;
 			goto exit;
@@ -5908,9 +5908,10 @@ int dhd_do_driver_init(struct net_device *net)
 int
 dhd_event_ifadd(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, uint8 *mac)
 {
-
 #ifdef WL_CFG80211
-	if (wl_cfg80211_notify_ifadd(ifevent->ifidx, name, mac, ifevent->bssidx) == BCME_OK)
+	if (wl_cfg80211_notify_ifadd(
+			dhd_linux_get_primary_netdev(&dhdinfo->pub),
+			ifevent->ifidx, name, mac, ifevent->bssidx) == BCME_OK)
 		return BCME_OK;
 #endif
 
@@ -5944,7 +5945,9 @@ dhd_event_ifdel(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, ui
 	dhd_if_event_t *if_event;
 
 #ifdef WL_CFG80211
-	if (wl_cfg80211_notify_ifdel(ifevent->ifidx, name, mac, ifevent->bssidx) == BCME_OK)
+	if (wl_cfg80211_notify_ifdel(
+			dhd_linux_get_primary_netdev(&dhdinfo->pub),
+			ifevent->ifidx, name, mac, ifevent->bssidx) == BCME_OK)
 		return BCME_OK;
 #endif /* WL_CFG80211 */
 
@@ -5963,6 +5966,18 @@ dhd_event_ifdel(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, ui
 	if_event->name[IFNAMSIZ - 1] = '\0';
 	dhd_deferred_schedule_work(dhdinfo->dhd_deferred_wq, (void *)if_event, DHD_WQ_WORK_IF_DEL,
 		dhd_ifdel_event_handler, DHD_WORK_PRIORITY_LOW);
+
+	return BCME_OK;
+}
+
+int
+dhd_event_ifchange(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, uint8 *mac)
+{
+#ifdef WL_CFG80211
+	wl_cfg80211_notify_ifchange(
+			dhd_linux_get_primary_netdev(&dhdinfo->pub),
+			ifevent->ifidx, name, mac, ifevent->bssidx);
+#endif /* WL_CFG80211 */
 
 	return BCME_OK;
 }
@@ -9235,7 +9250,7 @@ dhd_register_if(dhd_pub_t *dhdp, int ifidx, bool need_rtnl_lock)
 #endif /* BCMLXSDMMC */
 		if (!dhd_download_fw_on_driverload) {
 #ifdef WL_CFG80211
-			wl_terminate_event_handler();
+			wl_terminate_event_handler(net);
 #endif /* WL_CFG80211 */
 #if defined(DHD_LB) && defined(DHD_LB_RXP)
 			__skb_queue_purge(&dhd->rx_pend_queue);
@@ -9299,6 +9314,9 @@ void dhd_detach(dhd_pub_t *dhdp)
 	unsigned long flags;
 	int timer_valid = FALSE;
 	struct net_device *dev;
+#ifdef WL_CFG80211
+	struct bcm_cfg80211 *cfg = NULL;
+#endif
 
 	if (!dhdp)
 		return;
@@ -9422,14 +9440,14 @@ void dhd_detach(dhd_pub_t *dhdp)
 		ASSERT(ifp);
 		ASSERT(ifp->net);
 		if (ifp && ifp->net) {
+#ifdef WL_CFG80211
+			cfg = wl_get_cfg(ifp->net);
+#endif
+
 #if (defined(STBLINUX) && defined(WL_CFG80211))
-
 			/* keep wirless framework happy */
-			wl_cfg80211_cleanup();
+			wl_cfg80211_cleanup(cfg);
 #endif /* STBLINUX && WL_CFG80211 */
-
-
-
 
 			/* in unregister_netdev case, the interface gets freed by net->destructor
 			 * (which is set to free_netdev)
@@ -9509,7 +9527,7 @@ void dhd_detach(dhd_pub_t *dhdp)
 
 #ifdef WL_CFG80211
 	if (dhd->dhd_state & DHD_ATTACH_STATE_CFG80211) {
-		wl_cfg80211_detach(NULL);
+		wl_cfg80211_detach(cfg);
 		dhd_monitor_uninit();
 	}
 #endif
@@ -11452,10 +11470,13 @@ void dhd_get_customized_country_code(struct net_device *dev, char *country_iso_c
 void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notify)
 {
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+#ifdef WL_CFG80211
+	struct bcm_cfg80211 *cfg = wl_get_cfg(dev);
+#endif
 	if (dhd && dhd->pub.up) {
 		memcpy(&dhd->pub.dhd_cspec, cspec, sizeof(wl_country_t));
 #ifdef WL_CFG80211
-		wl_update_wiphybands(NULL, notify);
+		wl_update_wiphybands(cfg, notify);
 #endif
 	}
 }
@@ -11463,9 +11484,12 @@ void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notif
 void dhd_bus_band_set(struct net_device *dev, uint band)
 {
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+#ifdef WL_CFG80211
+	struct bcm_cfg80211 *cfg = wl_get_cfg(dev);
+#endif
 	if (dhd && dhd->pub.up) {
 #ifdef WL_CFG80211
-		wl_update_wiphybands(NULL, true);
+		wl_update_wiphybands(cfg, true);
 #endif
 	}
 }
@@ -12583,14 +12607,15 @@ void dhd_wlfc_plat_deinit(void *dhd)
 	return;
 }
 
-bool dhd_wlfc_skip_fc(void)
+bool dhd_wlfc_skip_fc(void *dhdp, uint8 idx)
 {
 #ifdef SKIP_WLFC_ON_CONCURRENT
 
 #ifdef WL_CFG80211
-
-	/* enable flow control in vsdb mode */
-	return !(wl_cfg80211_is_concurrent_mode());
+	struct net_device *net = dhd_idx2net((dhd_pub_t *)dhdp, idx);
+	if (net)
+		/* enable flow control in vsdb mode */
+		return !(wl_cfg80211_is_concurrent_mode(net));
 #else
 	return TRUE; /* skip flow control */
 #endif /* WL_CFG80211 */
