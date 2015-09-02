@@ -84,6 +84,8 @@ Optional properties:
 - cache-slice-names = An array of supported cache slice names by llcc
 - cache-slices = An array of supported cache slice ids corresponding
   to cache-slice-names by llcc
+- qcom,disable-clock-voltage-control = A bool indicating whether driver need
+  to control clock and voltage settings.
 
 [Second level nodes]
 Context Banks
