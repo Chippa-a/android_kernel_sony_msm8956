@@ -179,12 +179,9 @@ dhd_is_legacy_pno_enabled(dhd_pub_t *dhd)
 
 #ifdef GSCAN_SUPPORT
 static uint64
-convert_fw_rel_time_to_systime(uint32 fw_ts_ms)
+convert_fw_rel_time_to_systime(struct timespec *ts, uint32 fw_ts_ms)
 {
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-	return ((uint64)(TIMESPEC_TO_US(ts)) - (uint64)(fw_ts_ms * 1000));
+	return ((uint64)(TIMESPEC_TO_US(*ts)) - (uint64)(fw_ts_ms * 1000));
 }
 
 static void
@@ -2570,6 +2567,7 @@ _dhd_pno_get_gscan_batch_from_fw(dhd_pub_t *dhd)
 	uint8 *nAPs_per_scan = NULL;
 	uint8 num_scans_in_cur_iter;
 	uint16 count;
+	struct timespec tm_spec;
 
 	NULL_CHECK(dhd, "dhd is NULL\n", err);
 	NULL_CHECK(dhd->pno_state, "pno_state is NULL", err);
@@ -2622,6 +2620,7 @@ _dhd_pno_get_gscan_batch_from_fw(dhd_pub_t *dhd)
 				__FUNCTION__, err));
 			goto exit_mutex_unlock;
 		}
+		get_monotonic_boottime(&tm_spec);
 		DHD_PNO(("ver %d, status : %d, count %d\n", plbestnet->version,
 			plbestnet->status, plbestnet->count));
 		if (plbestnet->version != PFN_SCANRESULT_VERSION) {
@@ -2710,7 +2709,7 @@ _dhd_pno_get_gscan_batch_from_fw(dhd_pub_t *dhd)
 				result->ie_length = 0;
 				result->rtt = (uint64) plnetinfo->rtt0;
 				result->rtt_sd = (uint64) plnetinfo->rtt1;
-				result->ts = convert_fw_rel_time_to_systime(plnetinfo->timestamp);
+				result->ts = convert_fw_rel_time_to_systime(&tm_spec, plnetinfo->timestamp);
 				ts = plnetinfo->timestamp;
 				if (plnetinfo->pfnsubnet.SSID_len > DOT11_MAX_SSID_LEN) {
 					DHD_ERROR(("%s: Invalid SSID length %d\n",
@@ -3690,6 +3689,7 @@ dhd_handle_hotlist_scan_evt(dhd_pub_t *dhd, const void *event_data,
 	wl_pfn_net_info_t *plnetinfo;
 	gscan_results_cache_t *gscan_hotlist_cache;
 	int malloc_size = 0, i, total = 0;
+	struct timespec tm_spec;
 
 	gscan_params = &(_pno_state->pno_params_arr[INDEX_OF_GSCAN_PARAMS].params_gscan);
 
@@ -3699,6 +3699,7 @@ dhd_handle_hotlist_scan_evt(dhd_pub_t *dhd, const void *event_data,
 		return ptr;
 	}
 
+	get_monotonic_boottime(&tm_spec);
 	malloc_size = sizeof(gscan_results_cache_t) +
 	((results->count - 1) * sizeof(wifi_gscan_result_t));
 	gscan_hotlist_cache = (gscan_results_cache_t *) kmalloc(malloc_size, GFP_KERNEL);
@@ -3734,7 +3735,8 @@ dhd_handle_hotlist_scan_evt(dhd_pub_t *dhd, const void *event_data,
 		hotlist_found_array->capability = 0;
 		hotlist_found_array->ie_length = 0;
 
-		hotlist_found_array->ts = convert_fw_rel_time_to_systime(plnetinfo->timestamp);
+		hotlist_found_array->ts =
+		       convert_fw_rel_time_to_systime(&tm_spec, plnetinfo->timestamp);
 		if (plnetinfo->pfnsubnet.SSID_len > DOT11_MAX_SSID_LEN) {
 			DHD_ERROR(("Invalid SSID length %d: trimming it to max\n",
 			          plnetinfo->pfnsubnet.SSID_len));
