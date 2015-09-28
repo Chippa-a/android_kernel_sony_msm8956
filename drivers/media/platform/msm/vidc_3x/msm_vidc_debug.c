@@ -24,7 +24,8 @@ int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;
 int msm_vidc_hw_rsp_timeout = 1000;
 bool msm_vidc_fw_coverage = true;
-bool msm_vidc_regulator_cx_control = true;
+bool msm_vidc_reset_clock_control = false;
+bool msm_vidc_regulator_scaling = false;
 bool msm_vidc_dec_dcvs_mode = true;
 bool msm_vidc_enc_dcvs_mode = true;
 bool msm_vidc_sys_idle_indicator = true;
@@ -194,8 +195,10 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(x32, "fw_level", &msm_vidc_fw_debug) &&
 	__debugfs_create(u32, "fw_debug_mode", &msm_vidc_fw_debug_mode) &&
 	__debugfs_create(bool, "fw_coverage", &msm_vidc_fw_coverage) &&
-	__debugfs_create(bool, "regulator_cx_control",
-			&msm_vidc_regulator_cx_control) &&
+	__debugfs_create(bool, "reset_clock_control",
+			&msm_vidc_reset_clock_control) &&
+	__debugfs_create(bool, "regulator_scaling",
+			&msm_vidc_regulator_scaling) &&
 	__debugfs_create(bool, "dcvs_dec_mode", &msm_vidc_dec_dcvs_mode) &&
 	__debugfs_create(bool, "dcvs_enc_mode", &msm_vidc_enc_dcvs_mode) &&
 	__debugfs_create(u32, "fw_low_power_mode",
