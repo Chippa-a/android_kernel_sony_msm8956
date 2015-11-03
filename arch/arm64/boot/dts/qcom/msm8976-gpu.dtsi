@@ -109,6 +109,9 @@
 		/* IOMMU Data */
 		iommu = <&gfx_iommu>;
 
+		/*  Quirks  */
+		qcom,gpu-quirk-two-pass-use-wfi;
+
 		/* Trace bus */
 		coresight-id = <67>;
 		coresight-name = "coresight-gfx";
