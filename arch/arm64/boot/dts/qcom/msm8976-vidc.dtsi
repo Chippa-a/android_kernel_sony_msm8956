@@ -21,6 +21,7 @@
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		qcom,hfi = "venus";
+		qcom,hfi-version = "3xx";
 		qcom,firmware-name = "venus-v1";
 
 		clocks =
