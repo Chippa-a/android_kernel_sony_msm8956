@@ -1045,6 +1045,14 @@ disable_xfrm - BOOLEAN
 
 
 
+drop_unicast_in_l2_multicast - BOOLEAN
+	Drop any unicast IP packets that are received in link-layer
+	multicast (or broadcast) frames.
+	This behavior (for multicast) is actually a SHOULD in RFC
+	1122, but is disabled by default for compatibility reasons.
+	Default: off (0)
+
+
 tag - INTEGER
 	Allows you to write a number, which can be used as required.
 	Default value is 0.
