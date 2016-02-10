@@ -54,6 +54,8 @@
 		qcom,idle-timeout = <80>; //msecs
 		qcom,strtstp-sleepwake;
 
+		qcom,highest-bank-bit = <14>;
+
 		qcom,pm-qos-active-latency = <401>;
 		qcom,pm-qos-wakeup-latency = <101>;
 
