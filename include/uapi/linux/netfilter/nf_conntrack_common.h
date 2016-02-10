@@ -102,7 +102,10 @@ enum ip_conntrack_events {
 	IPCT_NATSEQADJ,		/* NAT is doing sequence adjustment */
 	IPCT_SECMARK,		/* new security mark has been set */
 	IPCT_LABEL,		/* new connlabel has been set */
+	IPCT_COUNTER,		/* Packet counters have matched. */
 };
+
+#define IPCT_COUNTER IPCT_COUNTER
 
 enum ip_conntrack_expect_events {
 	IPEXP_NEW,		/* new expectation */
