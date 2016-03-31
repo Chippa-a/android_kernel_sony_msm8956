@@ -336,7 +336,7 @@ static int fusb301_write_masked_byte(struct i2c_client *client,
 	}
 
 	rc = i2c_smbus_read_byte_data(client, addr);
-	if (!IS_ERR_VALUE(rc)) {
+	if (rc >= 0) {
 		rc = i2c_smbus_write_byte_data(client,
 			addr, BITS_SET((u8)rc, mask, val));
 	}
@@ -394,7 +394,7 @@ static int fusb301_read_device_id(struct fusb301_chip *chip)
 
 	rc = i2c_smbus_read_byte_data(chip->client,
 				FUSB301_REG_DEVICEID);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		return rc;
 
 	chip->dev_id = rc;
@@ -411,7 +411,7 @@ static int fusb301_update_status(struct fusb301_chip *chip)
 
 	/* read mode & control register */
 	rc = i2c_smbus_read_word_data(chip->client, FUSB301_REG_MODES);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: fail to read mode\n", __func__);
 		return rc;
 	}
@@ -447,7 +447,7 @@ static int fusb301_set_chip_state(struct fusb301_chip *chip, u8 state)
 				state == FUSB_STATE_UNATTACHED_SNK ? FUSB301_UNATT_SNK:
 				FUSB301_UNATT_SRC);
 
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "failed to write manual(%d)\n", rc);
 	}
 
@@ -457,7 +457,7 @@ static int fusb301_set_chip_state(struct fusb301_chip *chip, u8 state)
 
 	if (!chip->sw_resetting && state == FUSB_STATE_ERROR_RECOVERY) {
 		rc = i2c_smbus_read_byte_data(chip->client, FUSB301_REG_MANUAL);
-		if (!IS_ERR_VALUE(rc) && !(rc & FUSB301_ERR_REC)) {
+		if ((rc >= 0) && !(rc & FUSB301_ERR_REC)) {
 			dev_dbg(cdev, "%s: register MANUAL was cleared\n",
 								__func__);
 			return 0;
@@ -466,7 +466,7 @@ static int fusb301_set_chip_state(struct fusb301_chip *chip, u8 state)
 		dev_err(cdev, "%s: MANUAL was not cleared, start reset.\n",
 								__func__);
 		rc = fusb301_reset_device(chip);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		else
 			rc = SW_RESET_DONE;
@@ -488,7 +488,7 @@ static int fusb301_set_mode(struct fusb301_chip *chip, u8 mode)
 	if (mode != chip->mode) {
 		rc = i2c_smbus_write_byte_data(chip->client,
 				FUSB301_REG_MODES, mode);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(cdev, "%s: failed to write mode\n", __func__);
 			return rc;
 		}
@@ -521,7 +521,7 @@ static int fusb301_set_dfp_power(struct fusb301_chip *chip, u8 hcurrent)
 					FUSB301_REG_CONTROL,
 					FUSB301_HOST_CUR_MASK,
 					hcurrent);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "failed to write current(%d)\n", rc);
 		return rc;
 	}
@@ -550,7 +550,7 @@ static int fusb301_init_force_dfp_power(struct fusb301_chip *chip)
 					FUSB301_REG_CONTROL,
 					FUSB301_HOST_CUR_MASK,
 					FUSB301_HOST_1500MA);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "failed to write current\n");
 		return rc;
 	}
@@ -581,7 +581,7 @@ static int fusb301_set_toggle_time(struct fusb301_chip *chip, u8 toggle_time)
 					FUSB301_REG_CONTROL,
 					FUSB301_TGL_MASK,
 					toggle_time);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "failed to write toggle time\n");
 		return rc;
 	}
@@ -600,26 +600,26 @@ static int fusb301_init_reg(struct fusb301_chip *chip)
 
 	/* change current */
 	rc = fusb301_init_force_dfp_power(chip);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "%s: failed to force dfp power\n",
 				__func__);
 
 	/* change toggle time */
 	rc = fusb301_set_toggle_time(chip, chip->pdata->dttime);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "%s: failed to set toggle time\n",
 				__func__);
 
 	/* change mode */
 	rc = fusb301_set_mode(chip, chip->pdata->init_mode);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "%s: failed to set mode\n",
 				__func__);
 
 	/* set error recovery state */
 	rc = fusb301_set_chip_state(chip,
 				FUSB_STATE_ERROR_RECOVERY);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "%s: failed to set error recovery state\n",
 				__func__);
 
@@ -635,7 +635,7 @@ static int fusb301_reset_device(struct fusb301_chip *chip)
 	rc = i2c_smbus_write_byte_data(chip->client,
 					FUSB301_REG_RESET,
 					FUSB301_SW_RESET);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "reset fails\n");
 		return rc;
 	}
@@ -643,11 +643,11 @@ static int fusb301_reset_device(struct fusb301_chip *chip)
 	msleep(10);
 
 	rc = fusb301_update_status(chip);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "fail to read status\n");
 
 	rc = fusb301_init_reg(chip);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(cdev, "fail to init reg\n");
 
 	fusb301_detach(chip);
@@ -657,7 +657,7 @@ static int fusb301_reset_device(struct fusb301_chip *chip)
 				FUSB301_REG_CONTROL,
 				FUSB301_INT_MASK,
 				FUSB301_INT_ENABLE);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: fail to init\n", __func__);
 		return rc;
 	}
@@ -685,7 +685,7 @@ static ssize_t fregdump_show(struct device *dev,
 	mutex_lock(&chip->mlock);
 	for (i = 0 ; i < 5; i++) {
 		rc = i2c_smbus_read_word_data(chip->client, start_reg[(i*2)]);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			pr_err("cannot read 0x%02x\n", start_reg[(i*2)]);
 			rc = 0;
 		}
@@ -777,7 +777,7 @@ static ssize_t fchip_state_store(struct device *dev,
 		}
 
 		rc = fusb301_set_chip_state(chip, (u8)state);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			mutex_unlock(&chip->mlock);
 			return rc;
 		}
@@ -849,14 +849,14 @@ static ssize_t fmode_store(struct device *dev,
 		 * KNOWN LIMITATION
 		 */
 		rc = fusb301_set_mode(chip, (u8)mode);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			mutex_unlock(&chip->mlock);
 			return rc;
 		}
 
 		rc = fusb301_set_chip_state(chip,
 					FUSB_STATE_ERROR_RECOVERY);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			mutex_unlock(&chip->mlock);
 			return rc;
 		} else if (rc == SW_RESET_DONE) {
@@ -902,7 +902,7 @@ static ssize_t fdttime_store(struct device *dev,
 		mutex_lock(&chip->mlock);
 		rc = fusb301_set_toggle_time(chip, (u8)dttime);
 		mutex_unlock(&chip->mlock);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			return rc;
 
 		return size;
@@ -939,7 +939,7 @@ static ssize_t fhostcur_store(struct device *dev,
 		mutex_lock(&chip->mlock);
 		rc = fusb301_set_dfp_power(chip, (u8)buf);
 		mutex_unlock(&chip->mlock);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			return rc;
 
 		return size;
@@ -977,7 +977,7 @@ static ssize_t freset_store(struct device *dev,
 		mutex_lock(&chip->mlock);
 		rc = fusb301_reset_device(chip);
 		mutex_unlock(&chip->mlock);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			return rc;
 
 		return size;
@@ -1245,9 +1245,9 @@ static int fusb301_change_charge_type(struct fusb301_chip *chip,
 					FUSB301_REG_MASK,
 					FUSB301_M_BCLVL,
 					val);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to set int mask\n", __func__);
-		if (IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if (fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 	}
 
@@ -1280,9 +1280,9 @@ static void fusb301_bclvl_changed(struct fusb301_chip *chip)
 
 	rc = i2c_smbus_read_word_data(chip->client,
 				FUSB301_REG_STATUS);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to read\n", __func__);
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		return;
 	}
@@ -1319,7 +1319,7 @@ static void fusb301_src_detected(struct fusb301_chip *chip)
 
 	if (chip->mode & (FUSB301_SRC | FUSB301_SRC_ACC)) {
 		dev_err(cdev, "not support in source mode\n");
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		return;
 	}
@@ -1341,7 +1341,7 @@ static void fusb301_snk_detected(struct fusb301_chip *chip)
 
 	if (chip->mode & (FUSB301_SNK | FUSB301_SNK_ACC)) {
 		dev_err(cdev, "not support in sink mode\n");
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		return;
 	}
@@ -1349,11 +1349,11 @@ static void fusb301_snk_detected(struct fusb301_chip *chip)
 	/* SW Try.SNK Workaround below Rev 1.2 */
 	if ((!chip->triedsnk) &&
 		(chip->mode & (FUSB301_DRP | FUSB301_DRP_ACC))) {
-		if (IS_ERR_VALUE(fusb301_set_mode(chip, FUSB301_SNK)) ||
-			IS_ERR_VALUE(fusb301_set_chip_state(chip,
-						FUSB_STATE_UNATTACHED_SNK))) {
+		if ((fusb301_set_mode(chip, FUSB301_SNK) < 0) ||
+			(fusb301_set_chip_state(chip,
+						FUSB_STATE_UNATTACHED_SNK) < 0)) {
 			dev_err(cdev, "%s: failed to config trySnk\n", __func__);
-			if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+			if(fusb301_reset_device(chip) < 0)
 				dev_err(cdev, "%s: failed to reset\n", __func__);
 		} else {
 			u32 rnd;
@@ -1394,7 +1394,7 @@ static void fusb301_dbg_acc_detected(struct fusb301_chip *chip)
 
 	if (chip->mode & (FUSB301_SRC | FUSB301_SNK | FUSB301_DRP)) {
 		dev_err(cdev, "not support accessory mode\n");
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		return;
 	}
@@ -1412,7 +1412,7 @@ static void fusb301_aud_acc_detected(struct fusb301_chip *chip)
 
 	if (chip->mode & (FUSB301_SRC | FUSB301_SNK | FUSB301_DRP)) {
 		dev_err(cdev, "not support accessory mode\n");
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		return;
 	}
@@ -1428,11 +1428,11 @@ static void fusb301_timer_try_expired(struct fusb301_chip *chip)
 {
 	struct device *cdev = &chip->client->dev;
 
-	if (IS_ERR_VALUE(fusb301_set_mode(chip, FUSB301_SRC)) ||
-		IS_ERR_VALUE(fusb301_set_chip_state(chip,
-					FUSB_STATE_UNATTACHED_SRC))) {
+	if ((fusb301_set_mode(chip, FUSB301_SRC) < 0) ||
+		(fusb301_set_chip_state(chip,
+					FUSB_STATE_UNATTACHED_SRC) < 0)) {
 		dev_err(cdev, "%s: failed to config tryWaitSrc\n", __func__);
-		if(IS_ERR_VALUE(fusb301_reset_device(chip)))
+		if(fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 	} else {
 		u32 rnd;
@@ -1484,14 +1484,14 @@ static void fusb301_detach(struct fusb301_chip *chip)
 	if ((chip->triedsnk && chip->pdata->try_snk_emulation)
 					|| chip->role_switch) {
 		chip->role_switch = false;
-		if (IS_ERR_VALUE(fusb301_set_mode(chip,
-						chip->pdata->init_mode))) {
+		if ((fusb301_set_mode(chip,
+						chip->pdata->init_mode) < 0)) {
 			dev_err(cdev, "%s: failed to set init mode\n",
 								__func__);
 		} else {
 			int rc = fusb301_set_chip_state(chip,
 						FUSB_STATE_ERROR_RECOVERY);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(cdev, "%s: failed to set init mode\n",
 								__func__);
 			} else if (rc == SW_RESET_DONE) {
@@ -1541,7 +1541,7 @@ static bool fusb301_is_vbus_off(struct fusb301_chip *chip)
 
 	rc = i2c_smbus_read_byte_data(chip->client,
 				FUSB301_REG_STATUS);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to read status\n", __func__);
 		return false;
 	}
@@ -1555,7 +1555,7 @@ static bool fusb301_is_vbus_on(struct fusb301_chip *chip)
 	int rc;
 
 	rc = i2c_smbus_read_byte_data(chip->client, FUSB301_REG_STATUS);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to read status\n", __func__);
 		return false;
 	}
@@ -1576,7 +1576,7 @@ static bool fusb301_bclvl_detect_wa(struct fusb301_chip *chip,
 		(chip->try_attcnt < FUSB301_MAX_TRY_COUNT)) {
 		rc = fusb301_set_chip_state(chip,
 					FUSB_STATE_ERROR_RECOVERY);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(cdev, "%s: failed to set error recovery state\n",
 					__func__);
 			goto err;
@@ -1613,7 +1613,7 @@ static void fusb301_attach(struct fusb301_chip *chip)
 	/* get status and type */
 	rc = i2c_smbus_read_word_data(chip->client,
 			FUSB301_REG_STATUS);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to read status\n", __func__);
 		return;
 	}
@@ -1628,7 +1628,7 @@ static void fusb301_attach(struct fusb301_chip *chip)
 		(chip->state != FUSB_STATE_TRYWAIT_SRC)) {
 		rc = fusb301_set_chip_state(chip,
 				FUSB_STATE_ERROR_RECOVERY);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(cdev, "%s: failed to set error recovery\n",
 					__func__);
 		} else if (rc == SW_RESET_DONE) {
@@ -1691,7 +1691,7 @@ static void fusb301_attach(struct fusb301_chip *chip)
 	default:
 		rc = fusb301_set_chip_state(chip,
 				FUSB_STATE_ERROR_RECOVERY);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(cdev, "%s: failed to set error recovery\n",
 					__func__);
 		} else if (rc == SW_RESET_DONE) {
@@ -1716,7 +1716,7 @@ static void fusb301_timer_work_handler(struct work_struct *work)
 
 	if (chip->state == FUSB_STATE_TRY_SNK) {
 		if (fusb301_is_vbus_on(chip)) {
-			if (IS_ERR_VALUE(fusb301_set_mode(chip,	chip->pdata->init_mode))) {
+			if ((fusb301_set_mode(chip,	chip->pdata->init_mode) < 0)) {
 				dev_err(cdev, "%s: failed to set init mode\n", __func__);
 			}
 			chip->triedsnk = !chip->pdata->try_snk_emulation;
@@ -1742,7 +1742,7 @@ static void fusb301_work_handler(struct work_struct *work)
 	mutex_lock(&chip->mlock);
 	/* get interrupt */
 	rc = i2c_smbus_read_byte_data(chip->client, FUSB301_REG_INT);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(cdev, "%s: failed to read interrupt\n", __func__);
 		goto work_unlock;
 	}
@@ -2128,16 +2128,16 @@ static int dual_role_set_prop(struct dual_role_phy_instance *dual_role,
 	chip->pdata->try_snk_emulation = false;
 	chip->triedsnk = !chip->pdata->try_snk_emulation;
 	rc = fusb301_set_mode(chip, (u8)mode);
-	if (IS_ERR_VALUE(rc)) {
-		if (IS_ERR_VALUE(fusb301_reset_device(chip)))
+	if (rc < 0) {
+		if (fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		mutex_unlock(&chip->mlock);
 		return rc;
 	}
 
 	rc = fusb301_set_chip_state(chip, FUSB_STATE_ERROR_RECOVERY);
-	if (IS_ERR_VALUE(rc)) {
-		if (IS_ERR_VALUE(fusb301_reset_device(chip)))
+	if (rc < 0) {
+		if (fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to reset\n", __func__);
 		mutex_unlock(&chip->mlock);
 		return rc;
@@ -2162,8 +2162,8 @@ static int dual_role_set_prop(struct dual_role_phy_instance *dual_role,
 
 	mutex_lock(&chip->mlock);
 	rc = fusb301_set_mode(chip, (u8)fallback_mode);
-	if (IS_ERR_VALUE(rc)) {
-		if (IS_ERR_VALUE(fusb301_reset_device(chip)))
+	if (rc < 0) {
+		if (fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to set mode\n", __func__);
 		mutex_unlock(&chip->mlock);
 		return rc;
@@ -2174,8 +2174,8 @@ static int dual_role_set_prop(struct dual_role_phy_instance *dual_role,
 			fallback_mode == FUSB301_SNK ?
 			FUSB_STATE_UNATTACHED_SNK :
 			FUSB_STATE_ERROR_RECOVERY);
-	if (IS_ERR_VALUE(rc)) {
-		if (IS_ERR_VALUE(fusb301_reset_device(chip)))
+	if (rc < 0) {
+		if (fusb301_reset_device(chip) < 0)
 			dev_err(cdev, "%s: failed to set state\n", __func__);
 		mutex_unlock(&chip->mlock);
 		return rc;
@@ -2191,7 +2191,7 @@ static int dual_role_set_prop(struct dual_role_phy_instance *dual_role,
 			msecs_to_jiffies(ROLE_SWITCH_TIMEOUT));
 
 	mutex_lock(&chip->mlock);
-	if (IS_ERR_VALUE(fusb301_set_mode(chip,	chip->pdata->init_mode)))
+	if ((fusb301_set_mode(chip,	chip->pdata->init_mode) < 0))
 		dev_err(cdev, "%s: failed to set init mode\n", __func__);
 	mutex_unlock(&chip->mlock);
 
@@ -2446,7 +2446,7 @@ static int fusb301_probe(struct i2c_client *client,
 	mutex_init(&chip->mlock);
 
 	ret = fusb301_create_devices(cdev);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(cdev, "could not create devices\n");
 		goto err3;
 	}
@@ -2552,7 +2552,7 @@ static int fusb301_probe(struct i2c_client *client,
 	chip->type_c_psy.property_is_writeable = fusb301_property_is_writeable;
 
 	ret = power_supply_register(cdev, &chip->type_c_psy);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(cdev, "Unable to register  type_c_psy ret=%d\n", ret);
 		goto err6;
 	}
@@ -2646,7 +2646,7 @@ static void fusb301_shutdown(struct i2c_client *client)
 	struct fusb301_chip *chip = i2c_get_clientdata(client);
 	struct device *cdev = &client->dev;
 
-	if (IS_ERR_VALUE(fusb301_set_mode(chip, FUSB301_SNK)))
+	if (fusb301_set_mode(chip, FUSB301_SNK) < 0)
 		dev_err(cdev, "%s: failed to set sink mode\n", __func__);
 }
 
