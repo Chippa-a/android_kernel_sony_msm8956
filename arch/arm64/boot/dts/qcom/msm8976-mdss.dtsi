@@ -88,7 +88,6 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-has-10bit-pa;
-		qcom,mdss-needs-iommu-bw-vote;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-has-dst-split;
 		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
@@ -155,6 +154,16 @@
 		qcom,mdss-prefill-post-scaler-buffer-pixels = <2560>;
 		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
 		qcom,mdss-prefill-fbc-lines = <0>;
+
+		qcom,mdss-hw-rt-bus {
+			/* Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_hw_rt";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>,
+				<22 512 0 1000>;
+		};
 
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
