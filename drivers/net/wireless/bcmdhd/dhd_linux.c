@@ -3353,7 +3353,7 @@ dhd_set_mac_address(struct net_device *dev, void *addr)
 	dhdif->set_macaddress = TRUE;
 	dhd_net_if_unlock_local(dhd);
 	dhd_deferred_schedule_work(dhd->dhd_deferred_wq, (void *)dhdif, DHD_WQ_WORK_SET_MAC,
-		dhd_set_mac_addr_handler, DHD_WORK_PRIORITY_LOW);
+		dhd_set_mac_addr_handler, DHD_WQ_WORK_PRIORITY_LOW);
 	return ret;
 }
 
@@ -3369,7 +3369,7 @@ dhd_set_multicast_list(struct net_device *dev)
 
 	dhd->iflist[ifidx]->set_multicast = TRUE;
 	dhd_deferred_schedule_work(dhd->dhd_deferred_wq, (void *)dhd->iflist[ifidx],
-		DHD_WQ_WORK_SET_MCAST_LIST, dhd_set_mcast_list_handler, DHD_WORK_PRIORITY_LOW);
+		DHD_WQ_WORK_SET_MCAST_LIST, dhd_set_mcast_list_handler, DHD_WQ_WORK_PRIORITY_LOW);
 }
 
 #ifdef PROP_TXSTATUS
@@ -5933,7 +5933,7 @@ dhd_event_ifadd(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, ui
 		strncpy(if_event->name, name, IFNAMSIZ);
 		if_event->name[IFNAMSIZ - 1] = '\0';
 		dhd_deferred_schedule_work(dhdinfo->dhd_deferred_wq, (void *)if_event,
-			DHD_WQ_WORK_IF_ADD, dhd_ifadd_event_handler, DHD_WORK_PRIORITY_LOW);
+			DHD_WQ_WORK_IF_ADD, dhd_ifadd_event_handler, DHD_WQ_WORK_PRIORITY_LOW);
 	}
 
 	return BCME_OK;
@@ -5965,7 +5965,7 @@ dhd_event_ifdel(dhd_info_t *dhdinfo, wl_event_data_if_t *ifevent, char *name, ui
 	strncpy(if_event->name, name, IFNAMSIZ);
 	if_event->name[IFNAMSIZ - 1] = '\0';
 	dhd_deferred_schedule_work(dhdinfo->dhd_deferred_wq, (void *)if_event, DHD_WQ_WORK_IF_DEL,
-		dhd_ifdel_event_handler, DHD_WORK_PRIORITY_LOW);
+		dhd_ifdel_event_handler, DHD_WQ_WORK_PRIORITY_LOW);
 
 	return BCME_OK;
 }
@@ -9137,7 +9137,7 @@ static int dhd_inet6addr_notifier_call(struct notifier_block *this,
 
 	/* defer the work to thread as it may block kernel */
 	dhd_deferred_schedule_work(dhd->dhd_deferred_wq, (void *)ndo_info, DHD_WQ_WORK_IPV6_NDO,
-		dhd_inet6_work_handler, DHD_WORK_PRIORITY_LOW);
+		dhd_inet6_work_handler, DHD_WQ_WORK_PRIORITY_LOW);
 	return NOTIFY_DONE;
 }
 #endif /* OEM_ANDROID && CONFIG_IPV6 */
@@ -11411,7 +11411,7 @@ int dhd_os_send_hang_message(dhd_pub_t *dhdp)
 		if (!dhdp->hang_was_sent) {
 			dhdp->hang_was_sent = 1;
 			dhd_deferred_schedule_work(dhdp->info->dhd_deferred_wq, (void *)dhdp,
-				DHD_WQ_WORK_HANG_MSG, dhd_hang_process, DHD_WORK_PRIORITY_HIGH);
+				DHD_WQ_WORK_HANG_MSG, dhd_hang_process, DHD_WQ_WORK_PRIORITY_HIGH);
 		}
 	}
 	return ret;
@@ -13617,7 +13617,7 @@ dhd_set_monitor(dhd_pub_t *dhd, int ifidx, int val)
 	if (!val) {
 		info->monitor_type = val;
 		dhd_deferred_schedule_work(info->dhd_deferred_wq, NULL, DHD_WQ_WORK_IF_DEL,
-			dhd_del_monitor_if, DHD_WORK_PRIORITY_LOW);
+			dhd_del_monitor_if, DHD_WQ_WORK_PRIORITY_LOW);
 		return;
 	}
 
@@ -13625,7 +13625,7 @@ dhd_set_monitor(dhd_pub_t *dhd, int ifidx, int val)
 	if (val >= 1 && val <= 3) {
 		info->monitor_type = val;
 		dhd_deferred_schedule_work(info->dhd_deferred_wq, NULL, DHD_WQ_WORK_IF_ADD,
-			dhd_add_monitor_if, DHD_WORK_PRIORITY_LOW);
+			dhd_add_monitor_if, DHD_WQ_WORK_PRIORITY_LOW);
 	} else {
 		DHD_ERROR(("monitor type %d not supported\n", val));
 		ASSERT(0);
