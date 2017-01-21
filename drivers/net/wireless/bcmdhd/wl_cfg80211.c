@@ -11016,10 +11016,13 @@ wl_notify_pfn_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 {
 	struct net_device *ndev = NULL;
 
-	WL_ERR((">>> PNO Event\n"));
+	if (!data) {
+		WL_ERR(("Data is NULL!\n"));
+		return 0;
+	}
 
+	WL_DBG((">>> PNO Event\n"));
 	ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
-
 
 #ifndef WL_SCHED_SCAN
 	mutex_lock(&cfg->usr_sync);
