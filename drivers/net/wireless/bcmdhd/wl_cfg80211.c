@@ -10718,6 +10718,57 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	return err;
 }
 
+static bool
+wl_cfg80211_verify_bss(struct bcm_cfg80211 *cfg, struct net_device *ndev)
+{
+	struct cfg80211_bss *bss;
+	struct wiphy *wiphy;
+	struct wlc_ssid *ssid;
+	uint8 *curbssid;
+	int count = 0;
+	bool ret = false;
+
+	wiphy = bcmcfg_to_wiphy(cfg);
+	ssid = (struct wlc_ssid *)wl_read_prof(cfg, ndev, WL_PROF_SSID);
+	if (!ssid) {
+		WL_ERR(("No SSID found in the saved profile \n"));
+		return false;
+	}
+	curbssid = wl_read_prof(cfg, ndev, WL_PROF_BSSID);
+
+	do {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) || \
+	defined(CFG80211_DISCONNECTED_V2)
+		bss = cfg80211_get_bss(wiphy, NULL, curbssid,
+			ssid->SSID, ssid->SSID_len, IEEE80211_BSS_TYPE_ESS,
+			IEEE80211_PRIVACY_ANY);
+#else
+		bss = cfg80211_get_bss(wiphy, NULL, curbssid,
+			ssid->SSID, ssid->SSID_len, WLAN_CAPABILITY_ESS,
+			WLAN_CAPABILITY_ESS);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
+		if (bss || (count > 5)) {
+			break;
+		}
+
+		count++;
+		msleep(100);
+	} while (bss == NULL);
+
+	WL_DBG(("cfg80211 bss_ptr:%p loop_cnt:%d\n", bss, count));
+	if (bss) {
+		/* Update the reference count after use */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
+		cfg80211_put_bss(wiphy, bss);
+#else
+		cfg80211_put_bss(bss);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0) */
+		ret = true;
+	}
+
+	return ret;
+}
+
 static s32
 wl_bss_connect_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	const wl_event_msg_t *e, void *data, bool completed)
@@ -10789,6 +10840,16 @@ wl_bss_connect_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 #endif /* CUSTOM_SET_CPUCORE */
 			memset(&cfg->last_roamed_addr, 0, ETHER_ADDR_LEN);
 		}
+
+		if (completed && (wl_cfg80211_verify_bss(cfg, ndev) != true)) {
+			/* If bss entry is not available in the cfg80211 bss cache
+			 * the wireless stack will complain and won't populate
+			 * wdev->current_bss ptr
+			 */
+			WL_ERR(("BSS entry not found. Indicate assoc event failure\n"));
+			completed = false;
+			sec->auth_assoc_res_status = WLAN_STATUS_UNSPECIFIED_FAILURE;
+		}
 		cfg80211_connect_result(ndev,
 			curbssid,
 			conn_info->req_ie,
@@ -10801,7 +10862,7 @@ wl_bss_connect_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 			WLAN_STATUS_UNSPECIFIED_FAILURE,
 			GFP_KERNEL);
 		if (completed)
-			WL_INFORM(("Report connect result - connection succeeded\n"));
+			WL_ERR(("Report connect result - connection succeeded\n"));
 		else
 			WL_ERR(("Report connect result - connection failed\n"));
 	}
