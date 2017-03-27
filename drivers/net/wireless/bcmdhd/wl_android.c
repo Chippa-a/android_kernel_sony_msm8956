@@ -1261,6 +1261,7 @@ int wl_android_wifi_off(struct net_device *dev, bool on_failure)
 		DHD_TRACE(("%s: dev is null\n", __FUNCTION__));
 		return -EINVAL;
 	}
+	wl_fw_assoc_timeout_cancel();
 
 	dhd_net_if_lock(dev);
 	if (g_wifi_on || on_failure) {
