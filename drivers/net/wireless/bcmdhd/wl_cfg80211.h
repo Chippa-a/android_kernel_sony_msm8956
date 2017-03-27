@@ -706,6 +706,15 @@ list_for_each_entry_safe((pos), (next), (head), member) \
 
 #endif /* STRICT_GCC_WARNINGS */
 
+struct fw_assoc_timeout_work {
+	struct delayed_work delay_work;
+	struct net_device *dev;
+	struct bcm_cfg80211 *cfg;
+	bool fw_assoc_watchdog_started;
+};
+void wl_fw_assoc_timeout_init(void);
+void wl_fw_assoc_timeout_cancel(void);
+
 static inline struct wl_bss_info *next_bss(struct wl_scan_results *list, struct wl_bss_info *bss)
 {
 	return bss = bss ? (struct wl_bss_info *)((uintptr) bss + dtoh32(bss->length)) :
