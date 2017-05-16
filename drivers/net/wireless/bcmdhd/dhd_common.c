@@ -2467,7 +2467,7 @@ dhd_ndo_remove_ip(dhd_pub_t *dhd, int idx)
 /*
  * returns = TRUE if associated, FALSE if not associated
  */
-bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval)
+bool dhd_is_associated(dhd_pub_t *dhd, uint8 ifidx, int *retval)
 {
 	char bssid[6], zbuf[6];
 	int ret = -1;
@@ -2475,7 +2475,8 @@ bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval)
 	bzero(bssid, 6);
 	bzero(zbuf, 6);
 
-	ret  = dhd_wl_ioctl_cmd(dhd, WLC_GET_BSSID, (char *)&bssid, ETHER_ADDR_LEN, FALSE, 0);
+	ret  = dhd_wl_ioctl_cmd(dhd, WLC_GET_BSSID, (char *)&bssid,
+				ETHER_ADDR_LEN, FALSE, ifidx);
 	DHD_TRACE((" %s WLC_GET_BSSID ioctl res = %d\n", __FUNCTION__, ret));
 
 	if (ret == BCME_NOTASSOCIATED) {
@@ -2488,18 +2489,11 @@ bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval)
 	if (ret < 0)
 		return FALSE;
 
-	if ((memcmp(bssid, zbuf, ETHER_ADDR_LEN) != 0)) {
-		/*  STA is assocoated BSSID is non zero */
-
-		if (bss_buf) {
-			/* return bss if caller provided buf */
-			memcpy(bss_buf, bssid, ETHER_ADDR_LEN);
-		}
-		return TRUE;
-	} else {
+	if ((memcmp(bssid, zbuf, ETHER_ADDR_LEN) == 0)) {
 		DHD_TRACE(("%s: WLC_GET_BSSID ioctl returned zero bssid\n", __FUNCTION__));
 		return FALSE;
 	}
+	return TRUE;
 }
 
 /* Function to estimate possible DTIM_SKIP value */
@@ -2514,7 +2508,7 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 	int allowed_skip_dtim_cnt = 0;
 #endif /* !ENABLE_MAX_DTIM_IN_SUSPEND */
 	/* Check if associated */
-	if (dhd_is_associated(dhd, NULL, NULL) == FALSE) {
+	if (dhd_is_associated(dhd, 0, NULL) == FALSE) {
 		DHD_TRACE(("%s NOT assoc ret %d\n", __FUNCTION__, ret));
 		goto exit;
 	}

@@ -74,6 +74,21 @@ struct wl_ibss;
 #define IEEE80211_NUM_BANDS	NUM_NL80211_BANDS
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)) */
 
+/* On some MSM platform, it uses different version
+ * of linux kernel and cfg code as not synced.
+ * MSM defined CFG80211_DISCONNECTED_V2 as the flag
+ * when they uses different kernel/cfg version.
+ */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)) || (defined(CONFIG_ARCH_MSM) && \
+	defined(CFG80211_DISCONNECTED_V2))
+#define CFG80211_DISCONNECTED(dev, reason, ie, len, loc_gen, gfp) \
+	cfg80211_disconnected(dev, reason, ie, len, loc_gen, gfp);
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0))
+#define CFG80211_DISCONNECTED(dev, reason, ie, len, loc_gen, gfp) \
+	BCM_REFERENCE(loc_gen); \
+	cfg80211_disconnected(dev, reason, ie, len, gfp);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)) */
+
 /* 0 invalidates all debug messages.  default is 1 */
 #define WL_DBG_LEVEL 0xFF
 
