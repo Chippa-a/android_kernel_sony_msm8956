@@ -4559,9 +4559,10 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	maxrxpktglom = 0;
 #endif
 	bzero(&bssid, sizeof(bssid));
-	if (!wl_get_drv_status(cfg, CONNECTED, dev)&&
-		(ret = wldev_ioctl_get(dev, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN)) == 0) {
-		if (!ETHER_ISNULLADDR(&bssid)) {
+	ret = wldev_ioctl_get(dev, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN);
+	if (ret == 0) {
+		if ((!wl_get_drv_status(cfg, CONNECTED, dev) && !ETHER_ISNULLADDR(&bssid)) ||
+				wl_get_drv_status(cfg, CONNECTED, dev)) {
 			scb_val_t scbval;
 			wl_set_drv_status(cfg, DISCONNECTING, dev);
 			scbval.val = DOT11_RC_DISASSOC_LEAVING;
@@ -4593,6 +4594,10 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 			WL_DBG(("Waiting for disconnection terminated, wait_cnt: %d\n", wait_cnt));
 			wait_cnt--;
 			OSL_SLEEP(10);
+		}
+		if (wl_get_drv_status(cfg, DISCONNECTING, dev)) {
+			WL_ERR(("Force clear DISCONNECTING status!\n"));
+			wl_clr_drv_status(cfg, DISCONNECTING, dev);
 		}
 	}
 
@@ -4864,6 +4869,25 @@ exit:
 	return err;
 }
 
+#define WAIT_FOR_DISCONNECT_MAX 10
+static void wl_cfg80211_wait_for_disconnection(struct bcm_cfg80211 *cfg, struct net_device *dev)
+{
+	uint8 wait_cnt;
+
+	wait_cnt = WAIT_FOR_DISCONNECT_MAX;
+	while (wl_get_drv_status(cfg, DISCONNECTING, dev) && wait_cnt) {
+		WL_DBG(("Waiting for disconnection, wait_cnt: %d\n", wait_cnt));
+		wait_cnt--;
+		OSL_SLEEP(50);
+	}
+	if (wl_get_drv_status(cfg, DISCONNECTING, dev)) {
+		WL_ERR(("Force clear DISCONNECTING status!\n"));
+		wl_clr_drv_status(cfg, DISCONNECTING, dev);
+	}
+
+	return;
+}
+
 static s32
 wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 	u16 reason_code)
@@ -4898,16 +4922,20 @@ wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 			wl_notify_escan_complete(cfg, dev, true, true);
 		}
 #endif /* ESCAN_RESULT_PATCH */
-		wl_set_drv_status(cfg, DISCONNECTING, dev);
-		scbval.val = reason_code;
-		memcpy(&scbval.ea, curbssid, ETHER_ADDR_LEN);
-		scbval.val = htod32(scbval.val);
-		err = wldev_ioctl_set(dev, WLC_DISASSOC, &scbval,
-			sizeof(scb_val_t));
-		if (unlikely(err)) {
-			wl_clr_drv_status(cfg, DISCONNECTING, dev);
-			WL_ERR(("error (%d)\n", err));
-			return err;
+		if (wl_get_drv_status(cfg, CONNECTING, dev) ||
+			wl_get_drv_status(cfg, CONNECTED, dev)) {
+				wl_set_drv_status(cfg, DISCONNECTING, dev);
+				scbval.val = reason_code;
+				memcpy(&scbval.ea, curbssid, ETHER_ADDR_LEN);
+				scbval.val = htod32(scbval.val);
+				err = wldev_ioctl_set(dev, WLC_DISASSOC, &scbval,
+						sizeof(scb_val_t));
+				if (unlikely(err)) {
+					wl_clr_drv_status(cfg, DISCONNECTING, dev);
+					WL_ERR(("error (%d)\n", err));
+					return err;
+				}
+				wl_cfg80211_wait_for_disconnection(cfg, dev);
 		}
 	}
 #ifdef CUSTOM_SET_CPUCORE
@@ -4921,7 +4949,7 @@ wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 	/* cfg80211 expects disconnect event from DHD to release wdev->current_bss */
-	cfg80211_disconnected(dev, reason_code, NULL, 0, false, GFP_KERNEL);
+	CFG80211_DISCONNECTED(dev, reason_code, NULL, 0, false, GFP_KERNEL);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) */
 
 	return err;
@@ -5557,7 +5585,7 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 			}
 		}
 		if (!wl_get_drv_status(cfg, CONNECTED, dev) ||
-			(dhd_is_associated(dhd, NULL, &err) == FALSE)) {
+			(dhd_is_associated(dhd, 0, &err) == FALSE)) {
 			WL_ERR(("NOT assoc\n"));
 			if (err == -ERESTARTSYS)
 				return err;
@@ -5630,7 +5658,7 @@ get_station_err:
 			/* Disconnect due to zero BSSID or error to get RSSI */
 			WL_ERR(("force cfg80211_disconnected: %d\n", err));
 			wl_clr_drv_status(cfg, CONNECTED, dev);
-			cfg80211_disconnected(dev, 0, NULL, 0, false, GFP_KERNEL);
+			CFG80211_DISCONNECTED(dev, 0, NULL, 0, false, GFP_KERNEL);
 			wl_link_down(cfg);
 		}
 	}
@@ -9933,9 +9961,16 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 			ssid = (struct wlc_ssid *)wl_read_prof(cfg, ndev, WL_PROF_SSID);
 			bssid = (u8 *)wl_read_prof(cfg, ndev, WL_PROF_BSSID);
 			if (ssid && bssid) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) || \
+	defined(CFG80211_DISCONNECTED_V2)
+				bss = cfg80211_get_bss(wiphy, NULL, bssid,
+					ssid->SSID, ssid->SSID_len, IEEE80211_BSS_TYPE_ESS,
+					IEEE80211_PRIVACY_ANY);
+#else
 				bss = cfg80211_get_bss(wiphy, NULL, bssid,
 					ssid->SSID, ssid->SSID_len, WLAN_CAPABILITY_ESS,
 					WLAN_CAPABILITY_ESS);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
 				if (bss) {
 					cfg80211_unlink_bss(wiphy, bss);
 				}
@@ -9981,7 +10016,11 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 					return 0;
 				}
 				wl_clr_drv_status(cfg, CONNECTED, ndev);
-				if (! wl_get_drv_status(cfg, DISCONNECTING, ndev)) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+				CFG80211_DISCONNECTED(ndev, reason, NULL, 0, false, GFP_KERNEL);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) */
+
+				if (!wl_get_drv_status(cfg, DISCONNECTING, ndev)) {
 					/* To make sure disconnect, explictly send dissassoc
 					*  for BSSID 00:00:00:00:00:00 issue
 					*/
@@ -9995,13 +10034,19 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 						WL_ERR(("WLC_DISASSOC error %d\n", err));
 						err = 0;
 					}
-					cfg80211_disconnected(ndev, reason, NULL, 0, false, GFP_KERNEL);
+					CFG80211_DISCONNECTED(ndev, reason, NULL, 0, false, GFP_KERNEL);
 					wl_link_down(cfg);
 					wl_init_prof(cfg, ndev);
 				}
 			}
 			else if (wl_get_drv_status(cfg, CONNECTING, ndev)) {
-				printk("link down, during connecting\n");
+				WL_ERR(("link down, during connecting\n"));
+				/* Issue WLC_DISASSOC to prevent FW roam attempts */
+				err = wldev_ioctl_set(ndev, WLC_DISASSOC, NULL, 0);
+				if (err < 0) {
+					WL_ERR(("CONNECTING state, WLC_DISASSOC error %d\n", err));
+					err = 0;
+				}
 #ifdef ESCAN_RESULT_PATCH
 				if ((memcmp(connect_req_bssid, broad_bssid, ETHER_ADDR_LEN) == 0) ||
 					(memcmp(&e->addr, broad_bssid, ETHER_ADDR_LEN) == 0) ||
@@ -10017,8 +10062,8 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 				complete(&cfg->iface_disable);
 
 		} else if (wl_is_nonetwork(cfg, e)) {
-			printk("connect failed event=%d e->status %d e->reason %d \n",
-				event, (int)ntoh32(e->status), (int)ntoh32(e->reason));
+			WL_ERR(("connect failed event=%d e->status %d e->reason %d \n",
+				event, (int)ntoh32(e->status), (int)ntoh32(e->reason)));
 			/* Clean up any pending scan request */
 			wl_cfg80211_cancel_scan(cfg);
 			if (wl_get_drv_status(cfg, CONNECTING, ndev))
@@ -10345,7 +10390,7 @@ wl_check_pmstatus(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 			return err;
 		}
 
-		cfg80211_disconnected(ndev, reason, NULL, 0, false, GFP_KERNEL);
+		CFG80211_DISCONNECTED(ndev, reason, NULL, 0, false, GFP_KERNEL);
 		wl_link_down(cfg);
 	}
 
@@ -10581,11 +10626,11 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	struct wl_connect_info *conn_info = wl_to_conn(cfg);
 	s32 err = 0;
 	u8 *curbssid;
+	u32 *channel;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 39)) || defined(WL_COMPAT_WIRELESS)
 	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
 	struct ieee80211_supported_band *band;
 	struct ieee80211_channel *notify_channel = NULL;
-	u32 *channel;
 	u32 freq;
 #endif /* LINUX_VERSION > 2.6.39 || WL_COMPAT_WIRELESS */
 #if defined(CFG80211_ROAMED_API_UNIFIED) || \
@@ -10622,6 +10667,7 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	wl_update_bss_info(cfg, ndev, true);
 	wl_update_pmklist(ndev, cfg->pmk_list, err);
 
+	channel = (u32 *)wl_read_prof(cfg, ndev, WL_PROF_CHAN);
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 39)) || defined(WL_COMPAT_WIRELESS)
 	/* channel info for cfg80211_roamed introduced in 2.6.39-rc1 */
 	channel = (u32 *)wl_read_prof(cfg, ndev, WL_PROF_CHAN);
@@ -10641,8 +10687,8 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		memcpy(cfg->fbt_key, data, FBT_KEYLEN);
 	}
 #endif /* WLFBT */
-	printk("wl_bss_roaming_done succeeded to " MACDBG "\n",
-		MAC2STRDBG((const u8*)(&e->addr)));
+	WL_ERR(("wl_bss_roaming_done succeeded to " MACDBG " (ch:%d)\n",
+		MAC2STRDBG((const u8 *)(&e->addr)), *channel));
 
 #if defined(CFG80211_ROAMED_API_UNIFIED) || \
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
@@ -10825,7 +10871,7 @@ wl_notify_pfn_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 #ifndef WL_SCHED_SCAN
 	mutex_lock(&cfg->usr_sync);
 	/* TODO: Use cfg80211_sched_scan_results(wiphy); */
-	cfg80211_disconnected(ndev, 0, NULL, 0, false, GFP_KERNEL);
+	CFG80211_DISCONNECTED(ndev, 0, NULL, 0, false, GFP_KERNEL);
 	mutex_unlock(&cfg->usr_sync);
 #else
 	/* If cfg80211 scheduled scan is supported, report the pno results via sched
@@ -13906,7 +13952,7 @@ _Pragma("GCC diagnostic ignored \"-Wcast-qual\"")
 			continue;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 		if (wl_get_drv_status(cfg, CONNECTED, iter->ndev)) {
-			cfg80211_disconnected(iter->ndev, 0, NULL, 0, false, GFP_KERNEL);
+			CFG80211_DISCONNECTED(iter->ndev, 0, NULL, 0, false, GFP_KERNEL);
 		}
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) */
 		wl_clr_drv_status(cfg, READY, iter->ndev);
@@ -14069,7 +14115,7 @@ int wl_cfg80211_hang(struct net_device *dev, u16 reason)
 	} else
 #endif /* SOFTAP_SEND_HANGEVT */
 	{
-		cfg80211_disconnected(dev, reason, NULL, 0, false, GFP_KERNEL);
+		CFG80211_DISCONNECTED(dev, reason, NULL, 0, false, GFP_KERNEL);
 	}
 	if (cfg != NULL) {
 		wl_link_down(cfg);
@@ -14115,7 +14161,7 @@ int wl_cfg80211_cleanup(struct bcm_cfg80211 *cfg)
 
 	if (wl_get_drv_status(cfg, CONNECTED, ndev) ||
 		wl_get_drv_status(cfg, CONNECTING, ndev)) {
-		cfg80211_disconnected(ndev, 0, NULL, 0, false, GFP_KERNEL);
+		CFG80211_DISCONNECTED(ndev, 0, NULL, 0, false, GFP_KERNEL);
 	}
 
 	/* clear all flags */

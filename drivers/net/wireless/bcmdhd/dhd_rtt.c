@@ -1261,7 +1261,7 @@ dhd_rtt_start(dhd_pub_t *dhd)
 		goto exit;
 	}
 	/* turn off mpc in case of non-associted */
-	if (!dhd_is_associated(dhd, NULL, NULL)) {
+	if (!dhd_is_associated(dhd, 0, NULL)) {
 		err = dhd_iovar(dhd, 0, "mpc", (char *)&mpc, sizeof(mpc), NULL, 0, TRUE);
 		if (err) {
 			DHD_ERROR(("%s : failed to set mpc\n", __FUNCTION__));
