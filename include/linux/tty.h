@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 #include <linux/tty_flags.h>
 #include <uapi/linux/tty.h>
+#include <linux/kthread.h>
 
 
 
@@ -52,7 +53,7 @@ struct tty_buffer {
 
 
 struct tty_bufhead {
-	struct work_struct work;
+	struct kthread_work work;
 	spinlock_t lock;
 	struct tty_buffer *head;	/* Queue head */
 	struct tty_buffer *tail;	/* Active buffer */
@@ -213,6 +214,8 @@ struct tty_port {
 						   based drain is needed else
 						   set to size of fifo */
 	struct kref		kref;		/* Ref counter */
+	struct kthread_worker   worker;         /* worker thread */
+	struct task_struct      *worker_thread; /* worker thread */
 };
 
 /*

@@ -44,6 +44,8 @@ void tty_buffer_free_all(struct tty_port *port)
 	}
 	buf->tail = NULL;
 	buf->memory_used = 0;
+
+	kthread_stop(port->worker_thread);
 }
 
 /**
@@ -340,7 +342,7 @@ void tty_schedule_flip(struct tty_port *port)
 	if (buf->tail != NULL)
 		buf->tail->commit = buf->tail->used;
 	spin_unlock_irqrestore(&buf->lock, flags);
-	schedule_work(&buf->work);
+	queue_kthread_work(&port->worker, &buf->work);
 }
 EXPORT_SYMBOL(tty_schedule_flip);
 
@@ -417,7 +419,7 @@ EXPORT_SYMBOL_GPL(tty_prepare_flip_string_flags);
  *	receive_buf method is single threaded for each tty instance.
  */
 
-static void flush_to_ldisc(struct work_struct *work)
+static void flush_to_ldisc(struct kthread_work *work)
 {
 	struct tty_port *port = container_of(work, struct tty_port, buf.work);
 	struct tty_bufhead *buf = &port->buf;
@@ -491,7 +493,7 @@ static void flush_to_ldisc(struct work_struct *work)
 void tty_flush_to_ldisc(struct tty_struct *tty)
 {
 	if (!tty->port->low_latency)
-		flush_work(&tty->port->buf.work);
+		flush_kthread_work(&tty->port->buf.work);
 }
 
 /**
@@ -521,7 +523,7 @@ void tty_flip_buffer_push(struct tty_port *port)
 	if (port->low_latency)
 		flush_to_ldisc(&buf->work);
 	else
-		schedule_work(&buf->work);
+		queue_kthread_work(&port->worker, &buf->work);
 }
 EXPORT_SYMBOL(tty_flip_buffer_push);
 
@@ -544,6 +546,16 @@ void tty_buffer_init(struct tty_port *port)
 	buf->tail = NULL;
 	buf->free = NULL;
 	buf->memory_used = 0;
-	INIT_WORK(&buf->work, flush_to_ldisc);
+	init_kthread_work(&buf->work, flush_to_ldisc);
+	init_kthread_worker(&port->worker);
+	port->worker_thread = kthread_run(kthread_worker_fn, &port->worker,
+					  "tty_worker_thread");
+	if (IS_ERR(port->worker_thread)) {
+		/*
+		 * Not good, we can't unwind, this tty is going to be really
+		 * sad...
+		 */
+		pr_err("Unable to start tty_worker_thread\n");
+	}
 }
 
