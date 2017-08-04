@@ -1090,14 +1090,31 @@ static int mmc_sdio_resume(struct mmc_host *host)
  */
 static u32 mmc_select_low_voltage(struct mmc_host *host, u32 ocr)
 {
+	int bit;
+	u32 ocr_orig = ocr;
+#ifdef CONFIG_BCMDHD
+	u32 ocr_fake = 0x180;
+#endif
+
 	if ((host->ocr_avail == MMC_VDD_165_195) && mmc_host_uhs(host) &&
 		((ocr & host->ocr_avail) == 0)) {
-		/* lowest voltage can be selected in mmc_power_cycle */
+		/* Interpret non-standard IO_OP_COND */
+		bit = ffs(ocr) - 1;
+		ocr &= 3 << bit;
+		ocr = ocr >> 1;
+
+ #ifdef CONFIG_BCMDHD
+		/* Always force a specific OCR. BCMDHD only. */
+		pr_debug("%s: forcing ocr to 0x%x instead of 0x%x",
+			 mmc_hostname(host), ocr_fake, ocr);
+		ocr = ocr_fake;
+ #endif
+
+		/* Power cycle card to select lowest possible voltage */
 		mmc_power_cycle(host, ocr);
-		host->card->ocr = 0;
 	}
 
-	return host->card->ocr;
+	return ocr_orig;
 }
 
 static int mmc_sdio_power_restore(struct mmc_host *host)
