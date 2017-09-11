@@ -268,6 +268,7 @@ struct msm_hs_port {
 	void *ipc_msm_hs_log_ctxt;
 	void *ipc_msm_hs_pwr_ctxt;
 	int ipc_debug_mask;
+	wake_peer_fn wake_peer;
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -2026,6 +2027,20 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
 				&msm_uport->rx.kwork);
 		MSM_HS_DBG("%s(): Scheduled rx_tlet", __func__);
 	}
+}
+
+void msm_hs_set_wake_peer(struct uart_port *uport, wake_peer_fn wake_peer)
+{
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	msm_uport->wake_peer = wake_peer;
+}
+
+static void msm_hs_wake_peer(struct uart_port *uport)
+{
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+
+	if (msm_uport->wake_peer)
+		msm_uport->wake_peer(uport);
 }
 
 /*
@@ -3894,6 +3909,7 @@ static struct uart_ops msm_hs_ops = {
 	.config_port = msm_hs_config_port,
 	.flush_buffer = NULL,
 	.ioctl = msm_hs_ioctl,
+	.wake_peer = msm_hs_wake_peer,
 };
 
 module_init(msm_serial_hs_init);
