@@ -599,6 +599,7 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 				     struct snd_usb_audio *chip)
 {
 	struct snd_card *card;
+	struct usb_mixer_interface *mixer;
 	struct list_head *p;
 
 	if (chip == (void *)-1L)
@@ -629,7 +630,8 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 		}
 		/* release mixer resources */
 		list_for_each(p, &chip->mixer_list) {
-			snd_usb_mixer_disconnect(p);
+			mixer = list_entry(p, struct usb_mixer_interface, list);
+			snd_usb_mixer_disconnect(mixer);
 		}
 		usb_chip[chip->index] = NULL;
 		mutex_unlock(&register_mutex);
