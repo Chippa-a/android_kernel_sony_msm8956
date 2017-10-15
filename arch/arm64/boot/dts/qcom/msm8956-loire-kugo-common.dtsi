@@ -420,7 +420,7 @@
 &spmi_bus {
 	qcom,pmi8950@3 {
 		qcom,leds@d800 {
-			somc,init-br-ua = <10000>;
+			somc,init-br-ua = <3500>;
 			somc-s1,br-power-save-ua = <800>;
 			qcom,led-strings-list = [00 01];
 			qcom,ilim-ma = <660>;
