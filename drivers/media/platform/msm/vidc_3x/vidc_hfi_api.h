@@ -1438,7 +1438,8 @@ struct msm_vidc_gov_data {
 enum msm_vidc_power_mode {
 	VIDC_POWER_NORMAL = 0,
 	VIDC_POWER_LOW,
-	VIDC_POWER_TURBO
+	VIDC_POWER_TURBO,
+	VIDC_POWER_LOW_LATENCY,
 };
 
 
