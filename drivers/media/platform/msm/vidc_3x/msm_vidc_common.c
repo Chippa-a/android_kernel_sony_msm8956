@@ -108,6 +108,11 @@ static inline bool is_low_power_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_LOW_POWER);
 }
 
+static inline bool is_low_latency_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_LOW_LATENCY);
+}
+
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 {
 	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
@@ -557,6 +562,8 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 		else if (is_low_power_session(inst))
 			vote_data[i].power_mode = VIDC_POWER_LOW;
+		else if (is_low_latency_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW_LATENCY;
 		else
 			vote_data[i].power_mode = VIDC_POWER_NORMAL;
 		if (i == 0) {
@@ -2367,6 +2374,9 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
 		else if (is_low_power_session(inst))
 			clk_scale_data.power_mode[num_sessions] =
 				VIDC_POWER_LOW;
+		else if (is_low_latency_session(inst))
+			clk_scale_data.power_mode[num_sessions] =
+				VIDC_POWER_LOW_LATENCY;
 		else
 			clk_scale_data.power_mode[num_sessions] =
 				VIDC_POWER_NORMAL;
