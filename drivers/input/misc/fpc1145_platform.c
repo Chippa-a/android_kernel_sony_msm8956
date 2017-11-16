@@ -38,13 +38,17 @@
  */
 
 #include <linux/delay.h>
+#include <linux/fs.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
+#include <linux/ioctl.h>
 #include <linux/kernel.h>
+#include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/uaccess.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 
@@ -55,6 +59,14 @@
 #define PWR_ON_STEP_RANGE1 100
 #define PWR_ON_STEP_RANGE2 900
 #define NUM_PARAMS_REG_ENABLE_SET 2
+
+#define FPC_IOC_MAGIC	0x1145
+#define FPC_IOCWPREPARE	_IOW(FPC_IOC_MAGIC, 0x01, int)
+#define FPC_IOCWDEVWAKE	_IOW(FPC_IOC_MAGIC, 0x02, int)
+#define FPC_IOCWRESET	_IOW(FPC_IOC_MAGIC, 0x03, int)
+#define FPC_IOCRPREPARE	_IOR(FPC_IOC_MAGIC, 0x81, int)
+#define FPC_IOCRDEVWAKE	_IOR(FPC_IOC_MAGIC, 0x82, int)
+#define FPC_IOCRIRQ	_IOR(FPC_IOC_MAGIC, 0x83, int)
 
 static const char * const pctl_names[] = {
 	"fpc1145_reset_reset",
@@ -87,6 +99,8 @@ struct fpc1145_data {
 	struct mutex lock;
 	bool prepared;
 };
+
+static struct fpc1145_data *fpc1145_drvdata = NULL;
 
 static int vreg_setup(struct fpc1145_data *fpc1145, const char *name,
 	bool enable)
@@ -382,6 +396,74 @@ static const struct attribute_group attribute_group = {
 	.attrs = attributes,
 };
 
+static int fpc1145_device_open(struct inode *inode, struct file *fp)
+{
+	return 0;
+}
+
+static int fpc1145_device_release(struct inode *inode, struct file *fp)
+{
+	return 0;
+}
+
+static long fpc1145_device_ioctl(struct file *fp, unsigned int cmd,
+	unsigned long arg)
+{
+	int8_t val = 0;
+	int rc = -EINVAL;
+
+	if (unlikely(arg > 1))
+		return -EINVAL;
+
+	switch (cmd) {
+	case FPC_IOCWPREPARE:
+		dev_dbg(fpc1145_drvdata->dev, "%s device\n",
+			(arg == 0 ? "Unpreparing" : "Preparing"));
+		rc = device_prepare(fpc1145_drvdata, !!arg);
+		break;
+	case FPC_IOCWDEVWAKE:
+		dev_dbg(fpc1145_drvdata->dev, "Setting devwake %lu\n", arg);
+		dev_dbg(fpc1145_drvdata->dev, "WDEVWAKE Not implemented.\n");
+		break;
+	case FPC_IOCWRESET:
+		dev_dbg(fpc1145_drvdata->dev, "Resetting device\n");
+		rc = hw_reset(fpc1145_drvdata);
+		break;
+	case FPC_IOCRPREPARE:
+		rc = put_user((int8_t)fpc1145_drvdata->prepared,
+				(uint32_t *)arg);
+		break;
+	case FPC_IOCRDEVWAKE:
+		dev_dbg(fpc1145_drvdata->dev, "RDEVWAKE Not implemented.\n");
+		break;
+	case FPC_IOCRIRQ:
+		val = gpio_get_value(fpc1145_drvdata->irq_gpio);
+		rc = put_user(val, (uint32_t *)arg);
+		break;
+	default:
+		rc = -ENOIOCTLCMD;
+		dev_err(fpc1145_drvdata->dev, "Unknown IOCTL 0x%x.\n", cmd);
+		break;
+	}
+
+	return rc;
+}
+
+static const struct file_operations fpc1145_device_fops = {
+	.owner = THIS_MODULE,
+	.llseek = no_llseek,
+	.open = fpc1145_device_open,
+	.release = fpc1145_device_release,
+	.unlocked_ioctl = fpc1145_device_ioctl,
+	.compat_ioctl = fpc1145_device_ioctl,
+};
+
+static struct miscdevice fpc1145_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "fpc1145",
+	.fops = &fpc1145_device_fops,
+};
+
 static irqreturn_t fpc1145_irq_handler(int irq, void *handle)
 {
 	struct fpc1145_data *fpc1145 = handle;
@@ -431,6 +513,7 @@ static int fpc1145_probe(struct platform_device *pdev)
 
 	fpc1145->dev = dev;
 	platform_set_drvdata(pdev, fpc1145);
+	fpc1145_drvdata = fpc1145;
 
 	if (!np) {
 		dev_err(dev, "no of node found\n");
@@ -507,6 +590,10 @@ static int fpc1145_probe(struct platform_device *pdev)
 		(void)device_prepare(fpc1145, true);
 	}
 
+	rc = misc_register(&fpc1145_misc);
+	if (!rc)
+		goto exit;
+
 	dev_info(dev, "%s: ok\n", __func__);
 exit:
 	return rc;
@@ -563,4 +650,5 @@ module_exit(fpc1145_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Aleksej Makarov <aleksej.makarov@sonymobile.com>");
 MODULE_AUTHOR("Henrik Tillman <henrik.tillman@fingerprints.com>");
+MODULE_AUTHOR("AngeloGioacchino Del Regno <kholk11@gmail.com>");
 MODULE_DESCRIPTION("FPC1145 Fingerprint sensor device driver.");
