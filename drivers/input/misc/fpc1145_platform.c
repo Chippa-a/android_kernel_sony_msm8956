@@ -8,9 +8,6 @@
  * clocks, controlling GPIOs such as SPI chip select, sensor reset line, sensor
  * IRQ line, MISO and MOSI lines.
  *
- * The driver will expose most of its available functionality in sysfs which
- * enables dynamic control of these features from eg. a user space process.
- *
  * The sensor's IRQ events will be pushed to Kernel's event handling system and
  * are exposed in the drivers event node. This makes it possible for a user
  * space process to poll the input node and receive IRQ events easily. Usually
@@ -208,38 +205,6 @@ exit:
 	return rc;
 }
 
-static ssize_t pinctl_set(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(dev);
-	int rc = select_pin_ctl(fpc1145, buf);
-
-	return rc ? rc : count;
-}
-static DEVICE_ATTR(pinctl_set, S_IWUSR, NULL, pinctl_set);
-
-static ssize_t regulator_enable_set(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(dev);
-	char op;
-	char name[16];
-	int rc;
-	bool enable;
-
-	if (NUM_PARAMS_REG_ENABLE_SET != sscanf(buf, "%15s,%c", name, &op))
-		return -EINVAL;
-	if (op == 'e')
-		enable = true;
-	else if (op == 'd')
-		enable = false;
-	else
-		return -EINVAL;
-	rc = vreg_setup(fpc1145, name, enable);
-	return rc ? rc : count;
-}
-static DEVICE_ATTR(regulator_enable, S_IWUSR, NULL, regulator_enable_set);
-
 static int hw_reset(struct fpc1145_data *fpc1145)
 {
 	int irq_gpio;
@@ -265,20 +230,6 @@ static int hw_reset(struct fpc1145_data *fpc1145)
 exit:
 	return rc;
 }
-
-static ssize_t hw_reset_set(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	int rc;
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(dev);
-
-	if (!strncmp(buf, "reset", strlen("reset")))
-		rc = hw_reset(fpc1145);
-	else
-		return -EINVAL;
-	return rc ? rc : count;
-}
-static DEVICE_ATTR(hw_reset, S_IWUSR, NULL, hw_reset_set);
 
 /**
  * Will setup clocks, GPIOs, and regulators to correctly initialize the touch
@@ -332,79 +283,6 @@ exit:
 	mutex_unlock(&fpc1145->lock);
 	return rc;
 }
-
-static ssize_t device_prepare_set(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	int rc;
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(dev);
-
-	if (!strncmp(buf, "enable", strlen("enable")))
-		rc = device_prepare(fpc1145, true);
-	else if (!strncmp(buf, "disable", strlen("disable")))
-		rc = device_prepare(fpc1145, false);
-	else
-		return -EINVAL;
-	return rc ? rc : count;
-}
-static DEVICE_ATTR(spi_prepare, S_IWUSR, NULL, device_prepare_set);
-
-/**
- * sysfs node for controlling whether the driver is allowed
- * to wake up the platform on interrupt.
- */
-static ssize_t wakeup_enable_set(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	return count;
-}
-static DEVICE_ATTR(wakeup_enable, S_IWUSR, NULL, wakeup_enable_set);
-
-
-/**
- * sysf node to check the interrupt status of the sensor, the interrupt
- * handler should perform sysf_notify to allow userland to poll the node.
- */
-static ssize_t irq_get(struct device *device,
-	struct device_attribute *attribute,
-	char *buffer)
-{
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(device);
-	int irq = gpio_get_value(fpc1145->irq_gpio);
-
-	return scnprintf(buffer, PAGE_SIZE, "%i\n", irq);
-}
-
-
-/**
- * writing to the irq node will just drop a printk message
- * and return success, used for latency measurement.
- */
-static ssize_t irq_ack(struct device *device,
-	struct device_attribute *attribute,
-	const char *buffer, size_t count)
-{
-	struct fpc1145_data *fpc1145 = dev_get_drvdata(device);
-
-	dev_dbg(fpc1145->dev, "%s\n", __func__);
-	return count;
-}
-
-static DEVICE_ATTR(irq, S_IRUSR | S_IWUSR, irq_get, irq_ack);
-
-static struct attribute *attributes[] = {
-	&dev_attr_pinctl_set.attr,
-	&dev_attr_spi_prepare.attr,
-	&dev_attr_regulator_enable.attr,
-	&dev_attr_hw_reset.attr,
-	&dev_attr_wakeup_enable.attr,
-	&dev_attr_irq.attr,
-	NULL
-};
-
-static const struct attribute_group attribute_group = {
-	.attrs = attributes,
-};
 
 static int fpc1145_device_open(struct inode *inode, struct file *fp)
 {
@@ -503,8 +381,6 @@ static irqreturn_t fpc1145_irq_handler(int irq, void *handle)
 	struct fpc1145_data *fpc1145 = handle;
 
 	dev_dbg(fpc1145->dev, "%s\n", __func__);
-
-	sysfs_notify(&fpc1145->dev->kobj, NULL, dev_attr_irq.attr.name);
 
 	fpc1145->irq_fired = true;
 
@@ -626,12 +502,6 @@ static int fpc1145_probe(struct platform_device *pdev)
 	dev_dbg(dev, "requested irq %d\n", gpio_to_irq(fpc1145->irq_gpio));
 	enable_irq_wake(fpc1145->irq);
 
-	rc = sysfs_create_group(&dev->kobj, &attribute_group);
-	if (rc) {
-		dev_err(dev, "could not create sysfs\n");
-		goto exit;
-	}
-
 	if (of_property_read_bool(dev->of_node, "fpc,enable-on-boot")) {
 		dev_info(dev, "Enabling hardware\n");
 		(void)device_prepare(fpc1145, true);
@@ -650,7 +520,6 @@ static int fpc1145_remove(struct platform_device *pdev)
 {
 	struct fpc1145_data *fpc1145 = platform_get_drvdata(pdev);
 
-	sysfs_remove_group(&pdev->dev.kobj, &attribute_group);
 	wake_lock_destroy(&fpc1145->wakelock);
 	mutex_destroy(&fpc1145->lock);
 	(void)vreg_setup(fpc1145, "vcc_spi", false);
