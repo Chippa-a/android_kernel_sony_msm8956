@@ -1501,10 +1501,10 @@ static struct regulator_ops cpr_corner_ops = {
 	.get_voltage		= cpr2_gfx_regulator_get_voltage,
 };
 
-static int cpr2_gfx_regulator_suspend(struct platform_device *pdev,
-				 pm_message_t state)
+#if CONFIG_PM
+static int cpr2_gfx_regulator_suspend(struct device *dev)
 {
-	struct cpr2_gfx_regulator *cpr_vreg = platform_get_drvdata(pdev);
+	struct cpr2_gfx_regulator *cpr_vreg = dev_get_drvdata(dev);
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
@@ -1523,9 +1523,9 @@ static int cpr2_gfx_regulator_suspend(struct platform_device *pdev,
 	return 0;
 }
 
-static int cpr2_gfx_regulator_resume(struct platform_device *pdev)
+static int cpr2_gfx_regulator_resume(struct device *dev)
 {
-	struct cpr2_gfx_regulator *cpr_vreg = platform_get_drvdata(pdev);
+	struct cpr2_gfx_regulator *cpr_vreg = dev_get_drvdata(dev);
 	int rc = 0;
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
@@ -1545,6 +1545,15 @@ static int cpr2_gfx_regulator_resume(struct platform_device *pdev)
 	mutex_unlock(&cpr_vreg->cpr_mutex);
 	return 0;
 }
+#else
+#define cpr2_gfx_regulator_suspend NULL
+#define cpr2_gfx_regulator_resume NULL
+#endif
+
+static const struct dev_pm_ops cpr2_gfx_regulator_pm_ops = {
+	.suspend	= cpr2_gfx_regulator_suspend,
+	.resume		= cpr2_gfx_regulator_resume,
+};
 
 static int cpr2_gfx_allocate_memory(struct cpr2_gfx_regulator *cpr_vreg)
 {
@@ -3745,11 +3754,10 @@ static struct platform_driver cpr2_gfx_regulator_driver = {
 		.name	= "qcom,cpr2-gfx-regulator",
 		.of_match_table = cpr2_gfx_regulator_match_table,
 		.owner = THIS_MODULE,
+		.pm		= &cpr2_gfx_regulator_pm_ops,
 	},
 	.probe		= cpr2_gfx_regulator_probe,
 	.remove		= cpr2_gfx_regulator_remove,
-	.suspend	= cpr2_gfx_regulator_suspend,
-	.resume		= cpr2_gfx_regulator_resume,
 };
 
 static int cpr2_gfx_regulator_init(void)
