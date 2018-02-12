@@ -236,6 +236,7 @@
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pm8950_s2_level>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
@@ -1100,6 +1101,11 @@
 		qcom,max-nominal-sysclk-rate = <133330000>;
 		qcom,max-svs-sysclk-rate = <100000000>;
 		qcom,pm-qos-latency = <59>;
+
+		resets = <&clock_gcc GCC_USB_HS_BCR>,
+			<&clock_gcc GCC_QUSB2_PHY_BCR>,
+			<&clock_gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "core_reset", "phy_reset", "phy_por_reset";
 
 		qcom,usbbam@78c4000 {
 			compatible = "qcom,usb-bam-msm";
