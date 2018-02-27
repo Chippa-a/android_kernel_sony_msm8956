@@ -37,6 +37,7 @@
 #include <dt-bindings/clock/msm-clocks-hwio-8976.h>
 
 #include "clock.h"
+#include "reset.h"
 
 enum {
 	GCC_BASE,
@@ -3561,6 +3562,14 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(wcnss_m_clk),
 };
 
+static const struct msm_reset_map gcc_8976_resets[] = {
+	[GCC_CAMSS_MICRO_BCR] = {0x56008},
+	[GCC_USB_FS_BCR] = {0x3F000},
+	[GCC_USB_HS_BCR] = {0x41000},
+	[GCC_USB2_HS_PHY_ONLY_BCR] = {0x41034},
+	[GCC_QUSB2_PHY_BCR] = {0x4103C},
+};
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -3641,6 +3650,9 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval = readl_relaxed(GCC_REG_BASE(APSS_MISC));
 	regval |= BIT(2);
 	writel_relaxed(regval, GCC_REG_BASE(APSS_MISC));
+
+	msm_reset_controller_register(pdev, gcc_8976_resets,
+			ARRAY_SIZE(gcc_8976_resets), virt_bases[GCC_BASE]);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
