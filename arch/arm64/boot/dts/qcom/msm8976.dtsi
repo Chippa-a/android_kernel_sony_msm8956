@@ -25,7 +25,7 @@
 	interrupt-parent = <&wakegic>;
 
 	chosen {
-		bootargs = "boot_cpus=0,1,2,3,4,5";
+		bootargs = "boot_cpus=0,1,2,3,4,5, kpti=0";
 	};
 
 	firmware: firmware {
