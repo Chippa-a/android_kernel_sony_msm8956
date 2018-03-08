@@ -2065,8 +2065,12 @@ static int size_entry_mwt(struct ebt_entry *entry, const unsigned char *base,
 	 */
 
 	for (i = 0; i < 4 ; ++i) {
-		if (offsets[i] >= *total)
+		if (offsets[i] > *total)
 			return -EINVAL;
+
+		if (i < 3 && offsets[i] == *total)
+			return -EINVAL;
+
 		if (i == 0)
 			continue;
 		if (offsets[i-1] > offsets[i])
