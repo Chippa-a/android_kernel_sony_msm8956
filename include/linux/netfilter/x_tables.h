@@ -243,6 +243,7 @@ int xt_check_entry_offsets(const void *base, const char *elems,
                            unsigned int target_offset,
                            unsigned int next_offset);
 
+extern int xt_check_proc_name(const char *name, unsigned int size);
 extern int xt_check_match(struct xt_mtchk_param *,
 			  unsigned int size, u_int8_t proto, bool inv_proto);
 extern int xt_check_target(struct xt_tgchk_param *,
