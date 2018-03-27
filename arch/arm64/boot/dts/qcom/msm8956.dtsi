@@ -1652,6 +1652,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<63 512 0 0>,
 				<63 512 0 304000>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
@@ -1678,6 +1679,7 @@
 				 "scm_bus_clk", "scm_core_clk_src";
 		qcom,scm_core_clk_src-freq = <80000000>;
 
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
@@ -1764,6 +1766,7 @@
 				 "scm_bus_clk", "scm_core_clk_src";
 		qcom,scm_core_clk_src = <80000000>;
 
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,pas-id = <6>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <422>;
