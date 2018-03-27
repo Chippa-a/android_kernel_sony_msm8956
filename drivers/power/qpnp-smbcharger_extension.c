@@ -257,6 +257,7 @@ static int somc_chg_get_prop_batt_charge_full_design(struct smbchg_chip *chip)
 	return capacity;
 }
 
+#ifndef CONFIG_QPNP_LEGACY_CYCLE_COUNT
 #define DEFAULT_BATT_CYCLE_COUNT	0
 static int somc_chg_get_prop_batt_cycle_count(struct smbchg_chip *chip)
 {
@@ -270,6 +271,7 @@ static int somc_chg_get_prop_batt_cycle_count(struct smbchg_chip *chip)
 	}
 	return count;
 }
+#endif
 
 static int somc_chg_get_fv_cmp_cfg(struct smbchg_chip *chip)
 {

@@ -6269,7 +6269,9 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_ENABLE_SHUTDOWN_AT_LOW_BATTERY,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+#ifndef CONFIG_QPNP_LEGACY_CYCLE_COUNT
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
+#endif
 	POWER_SUPPLY_PROP_FV_CFG,
 	POWER_SUPPLY_PROP_FV_CMP_CFG,
 	POWER_SUPPLY_PROP_LRC_ENABLE,
@@ -6599,9 +6601,11 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = somc_chg_get_prop_batt_charge_full_design(chip);
 		break;
+#ifndef CONFIG_QPNP_LEGACY_CYCLE_COUNT
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		val->intval = somc_chg_get_prop_batt_cycle_count(chip);
 		break;
+#endif
 	case POWER_SUPPLY_PROP_FV_CFG:
 		val->intval = smbchg_float_voltage_get(chip);
 		break;

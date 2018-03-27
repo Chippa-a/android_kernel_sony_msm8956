@@ -23,7 +23,9 @@ static int somc_chg_get_typec_current_ma(struct smbchg_chip *chip,
 							int current_ma);
 static int somc_chg_get_prop_batt_charge_full(struct smbchg_chip *chip);
 static int somc_chg_get_prop_batt_charge_full_design(struct smbchg_chip *chip);
+#ifndef CONFIG_QPNP_LEGACY_CYCLE_COUNT
 static int somc_chg_get_prop_batt_cycle_count(struct smbchg_chip *chip);
+#endif
 static int somc_chg_get_fv_cmp_cfg(struct smbchg_chip *chip);
 static int somc_chg_lrc_get_capacity(struct chg_somc_params *params,
 			int capacity);

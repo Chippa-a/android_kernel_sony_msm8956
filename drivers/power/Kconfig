@@ -505,6 +505,16 @@ config QPNP_FG
 	  fuel gauge. The state of charge is reported through a BMS power
 	  supply property and also sends uevents when the capacity is updated.
 
+config QPNP_LEGACY_CYCLE_COUNT
+	tristate "QPNP fuel gauge cycle count bins"
+	default y
+	help
+	  Say Y here to enable the QPNP FG initial QCOM cycle count implementation.
+	  When not selected then POWER_SUPPLY_PROP_CYCLE_COUNT exposes the linux
+	  power supply battery cycle count which is not based on cycle bins.
+	  When selected only 'bms' will expose POWER_SUPPLY_PROP_CYCLE_COUNT
+	  reporting the bucket based value.
+
 config QNS_SYSTEM
 	bool "Qnovo QNS wrapper implementation"
 	default n
