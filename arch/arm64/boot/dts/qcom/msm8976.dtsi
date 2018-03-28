@@ -242,6 +242,11 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
@@ -1224,12 +1229,6 @@
 				qcom,descriptor-fifo-size = <0x2000>;
 			};
 		};
-	};
-
-	android_usb: android_usb@086000c8 {
-		compatible = "qcom,android-usb";
-		reg = <0x086000c8 0xc8>;
-		qcom,pm-qos-latency = <59 150 10741>;
 	};
 
 	slim_msm: slim@c140000{
