@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -532,16 +532,27 @@ static struct cpu_clk_8976 *cpuclk[] = { &a53_clk, &a72_clk, &cci_clk};
 
 static struct clk *logical_cpu_to_clk(int cpu)
 {
-	struct device_node *cpu_node = of_get_cpu_node(cpu, NULL);
-	u32 reg;
+	struct device_node *cpu_node;
+	const u32 *cell;
+	u64 hwid;
 
-	if (cpu_node && !of_property_read_u32(cpu_node, "reg", &reg)) {
-		if ((reg | a53_clk.cpu_reg_mask) == a53_clk.cpu_reg_mask)
-			return &a53_clk.c;
-		if ((reg | a72_clk.cpu_reg_mask) == a72_clk.cpu_reg_mask)
-			return &a72_clk.c;
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		goto fail;
+
+	cell = of_get_property(cpu_node, "reg", NULL);
+	if (!cell) {
+		pr_err("%s: missing reg property\n", cpu_node->full_name);
+		goto fail;
 	}
 
+	hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
+	if ((hwid | a53_clk.cpu_reg_mask) == a53_clk.cpu_reg_mask)
+		return &a53_clk.c;
+	if ((hwid | a72_clk.cpu_reg_mask) == a72_clk.cpu_reg_mask)
+		return &a72_clk.c;
+
+fail:
 	return NULL;
 }
 
