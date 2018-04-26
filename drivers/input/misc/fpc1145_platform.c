@@ -89,7 +89,7 @@ struct vreg_config {
 	int ua_load;
 };
 
-static const struct vreg_config const vreg_conf[] = {
+static const struct vreg_config vreg_conf[] = {
 	{ "vcc_spi", 1800000UL, 1800000UL, 10, },
 };
 
