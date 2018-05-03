@@ -2663,6 +2663,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	int ret;
 	int rfr_level;
 	unsigned long flags;
+	u32 irq_type;
 	unsigned int data;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct circ_buf *tx_buf = &uport->state->xmit;
@@ -2710,8 +2711,11 @@ static int msm_hs_startup(struct uart_port *uport)
 	mb();
 
 	if (is_use_low_power_wakeup(msm_uport)) {
+		irq_type = irq_get_trigger_type(msm_uport->wakeup.irq);
+		if (irq_type == IRQ_TYPE_NONE)
+			irq_type = IRQ_TYPE_EDGE_FALLING;
 		ret = request_irq(msm_uport->wakeup.irq, msm_hs_wakeup_isr,
-					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					irq_type | IRQF_ONESHOT,
 					"msm_hs_wakeup", msm_uport);
 		if (unlikely(ret)) {
 			MSM_HS_ERR("%s():Err getting uart wakeup_irq %d\n",
