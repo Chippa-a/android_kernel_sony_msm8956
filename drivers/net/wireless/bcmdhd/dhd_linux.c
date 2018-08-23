@@ -432,7 +432,7 @@ uint dhd_download_fw_on_driverload = TRUE;
 /* Definitions to provide path to the firmware and nvram
  * example nvram_path[MOD_PARAM_PATHLEN]="/projects/wlan/nvram.txt"
  */
-char firmware_path[MOD_PARAM_PATHLEN];
+char fwpath[MOD_PARAM_PATHLEN];
 char nvram_path[MOD_PARAM_PATHLEN];
 
 /* information string to keep firmware, chio, cheip version info visiable from log */
@@ -478,7 +478,7 @@ module_param(dhd_arp_mode, uint, 0);
 /* Disable Prop tx */
 module_param(disable_proptx, int, 0644);
 /* load firmware and/or nvram values from the filesystem */
-module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
+module_param_string(fwpath, fwpath, MOD_PARAM_PATHLEN, 0660);
 module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0660);
 
 /* Disable VHT(11ac) mode */
@@ -3854,7 +3854,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 	/* Update firmware and nvram path. The path may be from adapter info or module parameter
 	 * The path from adapter info is used for initialization only (as it won't change).
 	 *
-	 * The firmware_path/nvram_path module parameter may be changed by the system at run
+	 * The fwpath/nvram_path module parameter may be changed by the system at run
 	 * time. When it changes we need to copy it to dhdinfo->fw_path. Also Android private
 	 * command may change dhdinfo->fw_path. As such we need to clear the path info in
 	 * module parameter after it is copied. We won't update the path until the module parameter
@@ -3886,8 +3886,8 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 	 *
 	 * TODO: need a solution for multi-chip, can't use the same firmware for all chips
 	 */
-	if (firmware_path[0] != '\0')
-		fw = firmware_path;
+	if (fwpath[0] != '\0')
+		fw = fwpath;
 	if (nvram_path[0] != '\0')
 		nv = nvram_path;
 
@@ -3913,7 +3913,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 	}
 
 	/* clear the path in module parameter */
-	firmware_path[0] = '\0';
+	fwpath[0] = '\0';
 	nvram_path[0] = '\0';
 
 	if (dhdinfo->fw_path[0] == '\0') {
