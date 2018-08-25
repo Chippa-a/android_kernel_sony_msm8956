@@ -387,7 +387,7 @@ static const struct file_operations fpc1145_device_fops = {
 
 static struct miscdevice fpc1145_misc = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "fingerprint",
+	.name = "fpc1145",
 	.fops = &fpc1145_device_fops,
 };
 
