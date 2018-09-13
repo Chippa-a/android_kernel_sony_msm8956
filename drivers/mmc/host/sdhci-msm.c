@@ -3205,6 +3205,80 @@ void sdhci_msm_reset_enter(struct sdhci_host *host, u8 mask)
 	if (msm_host->ice.pdev)
 		writel_relaxed(1, host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL);
 }
+
+static ssize_t
+show_eol(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host->mmc || !host->mmc->card)
+		return snprintf(buf, PAGE_SIZE, "0x0\n");
+
+	return snprintf(buf, PAGE_SIZE, "0x%02x\n",
+		host->mmc->card->ext_csd.pre_eol_info);
+}
+
+static ssize_t
+show_length(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "0x25\n");
+}
+
+static ssize_t
+show_type(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "0x9\n");
+}
+
+static ssize_t
+show_lifetimeA(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host->mmc || !host->mmc->card)
+		return snprintf(buf, PAGE_SIZE, "0x0\n");
+
+	return snprintf(buf, PAGE_SIZE, "0x%02x\n",
+		host->mmc->card->ext_csd.device_life_time_est_typ_a);
+}
+
+static ssize_t
+show_lifetimeB(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host->mmc || !host->mmc->card)
+		return snprintf(buf, PAGE_SIZE, "0x0\n");
+
+	return snprintf(buf, PAGE_SIZE, "0x%02x\n",
+		host->mmc->card->ext_csd.device_life_time_est_typ_b);
+}
+
+DEVICE_ATTR(eol, S_IRUGO, show_eol, NULL);
+DEVICE_ATTR(length, S_IRUGO, show_length, NULL);
+DEVICE_ATTR(type, S_IRUGO, show_type, NULL);
+DEVICE_ATTR(lifetimeA, S_IRUGO, show_lifetimeA, NULL);
+DEVICE_ATTR(lifetimeB, S_IRUGO, show_lifetimeB, NULL);
+
+static struct attribute *mmc_health_attrs[] = {
+	&dev_attr_eol.attr,
+	&dev_attr_length.attr,
+	&dev_attr_type.attr,
+	&dev_attr_lifetimeA.attr,
+	&dev_attr_lifetimeB.attr,
+	NULL,
+};
+
+static struct attribute_group mmc_health_attr_grp = {
+	.name = "health",
+	.attrs = mmc_health_attrs,
+};
+
 /*
  * sdhci_msm_notify_pm_status - notification from mmc_host
  * layer to msm platform about PM state of mmc_host device.
@@ -3456,6 +3530,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	u16 host_version;
 	u32 pwr, irq_status, irq_ctl;
 	unsigned long flags;
+	int err;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -3948,6 +4023,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	device_enable_async_suspend(&pdev->dev);
+
+	err = sysfs_create_group(&pdev->dev.kobj, &mmc_health_attr_grp);
+	if (err)
+		pr_err("%s: failed to create sysfs group with err %d\n",
+							 __func__, err);
+
 	/* Successful initialization */
 	goto out;
 
