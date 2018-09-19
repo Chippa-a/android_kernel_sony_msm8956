@@ -16,176 +16,314 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-/*
- * Copyright (C) 2014 Sony Mobile Communications Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
- */
 
-#include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/err.h>
-#include <linux/fs.h>
-#include <linux/gpio.h>
-#include <linux/i2c.h>
-#include <linux/init.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/pinctrl/consumer.h>
-#include <linux/of_gpio.h>
-#include <linux/platform_device.h>
-#include <linux/pn547.h>
+#include <linux/fs.h>
 #include <linux/slab.h>
-#include <linux/types.h>
-#include <linux/wakelock.h>
+#include <linux/init.h>
+#include <linux/list.h>
+#include <linux/i2c.h>
+#include <linux/irq.h>
+#include <linux/jiffies.h>
+#include <linux/uaccess.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/miscdevice.h>
+#include <linux/spinlock.h>
+#include <linux/pn547.h>
+#include <linux/clk.h>
+#include <linux/device.h>
 
-#define PN547_WAIT_VENENABLE	10
-#define PN547_WAIT_VENDISABLE	60
-
-#define PN547_WAKE_LOCK_TIMEOUT	(HZ)
-#define MAX_I2C_RETRY_COUNT	5
 #define MAX_NORMAL_FRAME_SIZE	(255 + 3)
 #define MAX_FIRMDL_FRAME_SIZE	(1023 + 5)
 
-#define PN547_RES_READY_TIMEOUT_NORMAL	(HZ * 2)
-#define PN547_RES_READY_TIMEOUT_FWDL	(HZ * 15)
-#define PN547_RES_READY_SIZE	6
-#define PN547_RES_READY	"ready"
-#define PN547_RES_NOT_READY	"not_ready"
-
-#ifdef DEBUG_DETAIL
-#define DETAIL_LOG_SIZE	3
-#endif
-
-static DEFINE_MUTEX(lock);
-
-static const char * const init_deinit_cmds[] = {
-	[PN547_INIT]	= "pn547_init",
-	[PN547_DEINIT]	= "pn547_deinit",
-};
-
-static const char * const set_pwr_cmds[] = {
-	[PN547_SET_PWR_OFF]	= "pn547_set_pwr_off",
-	[PN547_SET_PWR_ON]	= "pn547_set_pwr_on",
-	[PN547_SET_PWR_FWDL]	= "pn547_set_pwr_fwdl",
-};
-
 struct pn547_dev {
-	wait_queue_head_t		wq;
-	struct wake_lock		wake_lock;
-	struct device			*dev;
-	struct i2c_client		*i2c_client;
-	struct pn547_i2c_platform_data	*pdata;
-	struct pinctrl			*pinctrl;
-	enum pn547_state		state;
-	bool				busy;
-	u16				req_size;
-	atomic_t			res_ready;
+	wait_queue_head_t	read_wq;
+	struct mutex		read_mutex;
+	struct device		*dev;
+	struct i2c_client	*client;
+	struct miscdevice	pn547_device;
+	struct pinctrl		*pinctrl;
+	enum pn547_state	state;
+	unsigned int 		ven_gpio;
+	unsigned int 		firm_gpio;
+	unsigned int		irq_gpio;
+	bool			irq_enabled;
+	spinlock_t		irq_enabled_lock;
+	bool			irq_wake_up;
 };
 
-static void dump_buf(struct pn547_dev *d, u8 *buf, int size)
-{
-#ifdef DEBUG_DETAIL
-	if (d->state == PN547_STATE_ON || d->state == PN547_STATE_FWDL) {
-		int i, size, p = 0;
-		bool fwdl;
-		char *s;
-
-		fwdl = d->state == PN547_STATE_FWDL;
-		size = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
-		s = kzalloc(size * DETAIL_LOG_SIZE + 1);
-		for (i = 0; i < size; i++)
-			p += snprintf(s + p, sizeof(s) - p, "%02x ", buf[i]);
-		dev_dbg(d->dev, "%s\n", s);
-		kzfree(s);
-	}
-#endif
-}
-
-static irqreturn_t pn547_dev_irq_handler(int irq, void *dev_info)
-{
-	struct pn547_dev *d = dev_info;
-
-	dev_dbg(d->dev, "%s: interruption\n", __func__);
-	mutex_lock(&lock);
-	wake_lock_timeout(&d->wake_lock, PN547_WAKE_LOCK_TIMEOUT);
-	atomic_set(&d->res_ready, 1);
-	wake_up_interruptible(&d->wq);
-	mutex_unlock(&lock);
-	return IRQ_HANDLED;
-}
-
-static int pn547_pinctrl_config(struct pn547_dev *dev, uint8_t active)
+static int pn547_pinctrl_config(struct pn547_dev *pn547_dev, uint8_t active)
 {
 	struct pinctrl_state *state;
 	const char *name = active ? "pn547-active" : "pn547-inactive";
 
-	state = pinctrl_lookup_state(dev->pinctrl, name);
+	state = pinctrl_lookup_state(pn547_dev->pinctrl, name);
 	if (IS_ERR(state)) {
-		dev_err(dev->dev,
-				"%s: pinctrol lookup state failed\n",
+		dev_err(pn547_dev->dev,
+				"%s: pinctrl lookup state failed\n",
 				__func__);
+
 		return PTR_ERR(state);
 	}
 
-	return pinctrl_select_state(dev->pinctrl, state);
+	return pinctrl_select_state(pn547_dev->pinctrl, state);
 }
 
-static int pn547_dev_chip_config(enum pn547_state state, struct pn547_dev *dev)
+static void pn547_disable_irq(struct pn547_dev *pn547_dev)
 {
-	int ret = 0;
+	unsigned long flags;
 
-	/* Activate pinctrol before bit banging. */
-	ret = pn547_pinctrl_config(dev, 1);
+	spin_lock_irqsave(&pn547_dev->irq_enabled_lock, flags);
+	if (pn547_dev->irq_enabled) {
+		disable_irq_nosync(pn547_dev->client->irq);
+		pn547_dev->irq_enabled = false;
+	}
+	spin_unlock_irqrestore(&pn547_dev->irq_enabled_lock, flags);
+}
+
+static void pn547_enable_irq(struct pn547_dev *pn547_dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&pn547_dev->irq_enabled_lock, flags);
+	if (!pn547_dev->irq_enabled) {
+		pn547_dev->irq_enabled = true;
+		enable_irq(pn547_dev->client->irq);
+	}
+	spin_unlock_irqrestore(&pn547_dev->irq_enabled_lock, flags);
+}
+
+static irqreturn_t pn547_dev_irq_handler(int irq, void *dev_id)
+{
+	struct pn547_dev *pn547_dev = dev_id;
+
+	if (device_may_wakeup(&pn547_dev->client->dev))
+		pm_wakeup_event(&pn547_dev->client->dev, 2000);
+
+	pn547_disable_irq(pn547_dev);
+
+	/* Wake up waiting readers */
+	wake_up(&pn547_dev->read_wq);
+
+	return IRQ_HANDLED;
+}
+
+static ssize_t pn547_dev_read(struct file *filp, char __user *buf,
+		size_t count, loff_t *offset)
+{
+	struct pn547_dev *pn547_dev = filp->private_data;
+	char tmp[MAX_FIRMDL_FRAME_SIZE];
+	int ret, maxlen;
+	bool fwdl;
+
+	fwdl = pn547_dev->state == PN547_STATE_FWDL;
+	maxlen = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
+	if (count > maxlen)
+		count = maxlen;
+
+	dev_dbg(pn547_dev->dev, "%s: reading %zu bytes.\n", __func__, count);
+
+	mutex_lock(&pn547_dev->read_mutex);
+
+	if (!gpio_get_value(pn547_dev->irq_gpio)) {
+		if (filp->f_flags & O_NONBLOCK) {
+			ret = -EAGAIN;
+			goto fail;
+		}
+
+		while (1) {
+			if (!pn547_dev->irq_enabled) {
+				pn547_dev->irq_enabled = true;
+				enable_irq(pn547_dev->client->irq);
+			}
+
+			ret = wait_event_interruptible(pn547_dev->read_wq,
+					!pn547_dev->irq_enabled);
+
+			pn547_disable_irq(pn547_dev);
+
+			if (ret)
+				goto fail;
+
+			if (gpio_get_value(pn547_dev->irq_gpio))
+				break;
+
+			dev_err_ratelimited(&pn547_dev->client->dev,
+			"%s: gpio is low, no need to read data\n", __func__);
+		}
+	}
+
+	/* Read data */
+	ret = i2c_master_recv(pn547_dev->client, tmp, count);
+
+	if (ret < 0) {
+		dev_err(pn547_dev->dev, "%s: i2c_master_recv returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+	if (ret > count) {
+		dev_err(pn547_dev->dev, "%s: received too many bytes from i2c (%d)\n",
+				__func__, ret);
+		return -EIO;
+	}
+	if (copy_to_user(buf, tmp, ret)) {
+		dev_err(pn547_dev->dev, "%s: failed to copy to user space\n",
+				__func__);
+		return -EFAULT;
+	}
+
+	mutex_unlock(&pn547_dev->read_mutex);
+
+	return ret;
+
+fail:
+	mutex_unlock(&pn547_dev->read_mutex);
+	return ret;
+}
+
+static ssize_t pn547_dev_write(struct file *filp, const char __user *buf,
+		size_t count, loff_t *offset)
+{
+	struct pn547_dev  *pn547_dev;
+	char tmp[MAX_FIRMDL_FRAME_SIZE];
+	int ret, retry, maxlen;
+	bool fwdl;
+
+	pn547_dev = filp->private_data;
+
+	fwdl = pn547_dev->state == PN547_STATE_FWDL;
+	maxlen = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
+	if (count > maxlen)
+		count = maxlen;
+
+	if (copy_from_user(tmp, buf, count)) {
+		dev_err(pn547_dev->dev, "%s: failed to copy from user space\n",
+				__func__);
+		return -EFAULT;
+	}
+
+	dev_dbg(pn547_dev->dev, "%s: writing %zu bytes.\n", __func__, count);
+
+	/* Write data */
+	for (retry = 0; retry < 5; retry++) {
+		ret = i2c_master_send(pn547_dev->client, tmp, count);
+		if (ret < 0) {
+			dev_err(&pn547_dev->client->dev,
+				"%s: write failed, maybe in standby mode - retry(%d)\n",
+				 __func__, retry);
+			usleep_range(1000, 1100);
+		} else if (ret == count)
+			break;
+	}
+
+	if (ret != count) {
+		dev_err(pn547_dev->dev, "%s: i2c_master_send returned %d\n",
+				__func__, ret);
+		ret = -EIO;
+	}
+
+	return ret;
+}
+
+static int pn547_dev_open(struct inode *inode, struct file *filp)
+{
+	struct pn547_dev *pn547_dev = container_of(filp->private_data,
+				struct pn547_dev, pn547_device);
+
+	filp->private_data = pn547_dev;
+
+	dev_dbg(&pn547_dev->client->dev,
+			"%s: %d,%d\n", __func__, imajor(inode), iminor(inode));
+
+	return 0;
+}
+
+static long pn547_dev_ioctl(struct file *filp, unsigned int cmd,
+				unsigned long arg)
+{
+	struct pn547_dev *pn547_dev = filp->private_data;
+	int ret = 0, state;
+
+	/* Activate pinctrl before bit banging. */
+	ret = pn547_pinctrl_config(pn547_dev, 1);
 	if (ret) {
-		dev_err(dev->dev,
-				"%s: pinctrol failed on chip configuration %d\n",
+		dev_err(pn547_dev->dev,
+				"%s: pinctrl failed on chip configuration %d\n",
 				__func__, ret);
 		goto err;
 	}
 
-	switch (state) {
-	case PN547_STATE_OFF:
-		gpio_set_value_cansleep(dev->pdata->fwdl_en_gpio, 0);
-		gpio_set_value_cansleep(dev->pdata->ven_gpio, 0);
-		msleep(PN547_WAIT_VENDISABLE);
+	switch (cmd) {
+	case PN547_SET_PWR:
+		if (arg == 2) {
+			/* power on with firmware download (requires hw reset)
+			 */
+			gpio_set_value(pn547_dev->ven_gpio, 1);
+			msleep(10);
+			gpio_set_value(pn547_dev->firm_gpio, 1);
+			msleep(10);
+			gpio_set_value(pn547_dev->ven_gpio, 0);
+			msleep(10);
+			gpio_set_value(pn547_dev->ven_gpio, 1);
+			msleep(10);
+			state = PN547_STATE_FWDL;
+		} else if (arg == 1) {
+			/* power on */
+			pn547_enable_irq(pn547_dev);
+			gpio_set_value(pn547_dev->firm_gpio, 0);
+			gpio_set_value(pn547_dev->ven_gpio, 1);
+			msleep(10);
+			state = PN547_STATE_ON;
+		} else  if (arg == 0) {
+			/* power off */
+			pn547_disable_irq(pn547_dev);
+			gpio_set_value(pn547_dev->firm_gpio, 0);
+			gpio_set_value(pn547_dev->ven_gpio, 0);
+			msleep(60);
+			state = PN547_STATE_OFF;
 
-		/* Suspend pinctrol when PN547 is turned off. */
-		ret = pn547_pinctrl_config(dev, 0);
-		if (ret) {
-			dev_err(dev->dev,
-					"%s: pinctrol failed on PN547_STATE_OFF %d\n",
+			/* Suspend pinctrl when PN547 is turned off. */
+			ret = pn547_pinctrl_config(pn547_dev, 0);
+			if (ret) {
+				dev_err(pn547_dev->dev,
+						"%s: pinctrl failed on PN547_STATE_OFF %d\n",
 					__func__, ret);
-			goto err;
+				goto err;
+			}
+		} else {
+			dev_err(pn547_dev->dev, "%s: bad ioctl %lu\n",
+					__func__, arg);
+			return -EINVAL;
 		}
 		break;
-	case PN547_STATE_ON:
-		gpio_set_value_cansleep(dev->pdata->fwdl_en_gpio, 0);
-		gpio_set_value_cansleep(dev->pdata->ven_gpio, 1);
-		msleep(PN547_WAIT_VENENABLE);
-		break;
-	case PN547_STATE_FWDL:
-		gpio_set_value_cansleep(dev->pdata->ven_gpio, 1);
-		gpio_set_value_cansleep(dev->pdata->fwdl_en_gpio, 1);
-		msleep(PN547_WAIT_VENENABLE);
-		gpio_set_value_cansleep(dev->pdata->ven_gpio, 0);
-		msleep(PN547_WAIT_VENENABLE);
-		gpio_set_value_cansleep(dev->pdata->ven_gpio, 1);
-		msleep(PN547_WAIT_VENENABLE);
-		break;
 	default:
-		dev_err(dev->dev, "%s: undefined state %d\n", __func__, state);
+		dev_err(pn547_dev->dev, "%s: bad ioctl %u\n", __func__, cmd);
 		return -EINVAL;
 	}
+
+	if (pn547_dev->state != state)
+		pn547_dev->state = state;
+
 	return 0;
 
 err:
 	return ret;
 }
+
+static const struct file_operations pn547_dev_fops = {
+	.owner = THIS_MODULE,
+	.llseek = no_llseek,
+	.read  = pn547_dev_read,
+	.write = pn547_dev_write,
+	.open = pn547_dev_open,
+	.unlocked_ioctl = pn547_dev_ioctl,
+};
 
 static int pn547_parse_dt(struct device *dev,
 			 struct pn547_i2c_platform_data *pdata)
@@ -205,7 +343,7 @@ static int pn547_parse_dt(struct device *dev,
 		dev_err(dev, "failed to get \"nxp,dwld_en\"\n");
 		goto err;
 	}
-	pdata->fwdl_en_gpio = ret;
+	pdata->firm_gpio = ret;
 
 	ret = of_get_named_gpio(np, "nxp,ven", 0);
 	if (ret < 0) {
@@ -218,6 +356,45 @@ err:
 	return ret;
 }
 
+static void pn547_pinctrl_destroy(struct pn547_dev *pn547_dev)
+{
+	int ret = 0;
+
+	ret = pn547_pinctrl_config(pn547_dev, 0);
+	if (ret)
+		dev_err(pn547_dev->dev, "%s: pinctrl failed on destroy %d\n",
+			__func__, ret);
+
+	devm_pinctrl_put(pn547_dev->pinctrl);
+}
+
+static struct clk *nfc_clk;
+static int pn547_clk_enable(struct device *dev)
+{
+	int ret = -1;
+
+	nfc_clk = clk_get(dev, "nfc_clk");
+	if (IS_ERR(nfc_clk)) {
+		dev_err(dev, "%s: failed to get nfc_clk\n", __func__);
+		return ret;
+	}
+
+	ret = clk_prepare(nfc_clk);
+	if (ret) {
+		dev_err(dev, "%s: failed to prepare nfc_clk\n", __func__);
+		return ret;
+	}
+
+	return ret;
+}
+
+static void pn547_clk_disable(void)
+{
+	clk_unprepare(nfc_clk);
+	clk_put(nfc_clk);
+	nfc_clk = NULL;
+}
+
 static int pn547_gpio_request(struct device *dev,
 				struct pn547_i2c_platform_data *pdata)
 {
@@ -226,16 +403,29 @@ static int pn547_gpio_request(struct device *dev,
 	ret = gpio_request(pdata->irq_gpio, "pn547_irq");
 	if (ret)
 		goto err_irq;
-	ret = gpio_request(pdata->fwdl_en_gpio, "pn547_fw");
+	ret = gpio_direction_input(pdata->irq_gpio);
+	if (ret)
+		goto err_irq;
+
+	gpio_free(pdata->firm_gpio);
+	ret = gpio_request(pdata->firm_gpio, "pn547_fw");
 	if (ret)
 		goto err_fwdl_en;
+	ret = gpio_direction_output(pdata->firm_gpio, 0);
+	if (ret)
+		goto err_fwdl_en;
+
 	ret = gpio_request(pdata->ven_gpio, "pn547_ven");
 	if (ret)
 		goto err_ven;
+	ret = gpio_direction_output(pdata->ven_gpio, 0);
+	if (ret)
+		goto err_ven;
+
 	return 0;
 
 err_ven:
-	gpio_free(pdata->fwdl_en_gpio);
+	gpio_free(pdata->firm_gpio);
 err_fwdl_en:
 	gpio_free(pdata->irq_gpio);
 err_irq:
@@ -247,410 +437,168 @@ static void pn547_gpio_release(struct pn547_i2c_platform_data *pdata)
 {
 	gpio_free(pdata->ven_gpio);
 	gpio_free(pdata->irq_gpio);
-	gpio_free(pdata->fwdl_en_gpio);
-}
-
-static void pn547_pinctrl_destroy(struct pn547_dev *dev)
-{
-	int ret = 0;
-
-	ret = pn547_pinctrl_config(dev, 0);
-	if (ret)
-		dev_err(dev->dev, "%s: pinctrol failed on destroy %d\n",
-			__func__, ret);
-
-	devm_pinctrl_put(dev->pinctrl);
-}
-
-static ssize_t pn547_dev_recv_resp_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-	int ret = 0, retry_count = 0, maxlen;
-	bool fwdl;
-
-	if (!d)
-		return -ENODEV;
-
-	mutex_lock(&lock);
-	fwdl = d->state == PN547_STATE_FWDL;
-	maxlen = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
-	if (d->req_size > maxlen)
-		d->req_size = maxlen;
-	atomic_set(&d->res_ready, 0);
-retry:
-	ret = i2c_master_recv(d->i2c_client, buf, d->req_size);
-	if (ret == -ENODEV || ret == -ENOTCONN || ret == -EIO) {
-		retry_count++;
-		if (retry_count > MAX_I2C_RETRY_COUNT) {
-			dev_err(d->dev, "%s: i2c err %d, retry count expired\n",
-				__func__, ret);
-			goto exit;
-		}
-		usleep_range(10000, 11000);
-		goto retry;
-	}
-
-	if (ret < 0) {
-		dev_err(d->dev, "%s: i2c err %d\n", __func__, ret);
-		goto exit;
-	}
-
-	if (ret > d->req_size) {
-		dev_err(d->dev, "%s: i2c err %d\n", __func__, ret);
-		ret = -EIO;
-		goto exit;
-	}
-	dump_buf(d, buf, ret);
-exit:
-	mutex_unlock(&lock);
-	return ret;
-}
-
-static ssize_t pn547_dev_recv_resp_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-
-	if (!d)
-		return -ENODEV;
-
-	mutex_lock(&lock);
-	memcpy(&d->req_size, buf, size);
-	dev_dbg(d->dev, "%s: req_size = %d\n", __func__, d->req_size);
-	mutex_unlock(&lock);
-	return 0;
-}
-
-static ssize_t pn547_dev_res_ready_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-	bool state = false;
-
-	if (!d)
-		return -ENODEV;
-
-	dev_dbg(d->dev, "%s: res_ready_show enter\n", __func__);
-
-	wait_event_interruptible_timeout(d->wq, atomic_read(&d->res_ready),
-		d->state == PN547_STATE_FWDL ?
-		PN547_RES_READY_TIMEOUT_FWDL : PN547_RES_READY_TIMEOUT_NORMAL);
-	if (atomic_read(&d->res_ready))
-		state = true;
-
-	dev_dbg(d->dev, "%s: res_ready_show exit\n", __func__);
-	return snprintf(buf, PN547_RES_READY_SIZE, "%s",
-		state ? PN547_RES_READY : PN547_RES_NOT_READY);
-}
-
-static ssize_t pn547_dev_send_cmd_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-	int ret = 0, retry_count = 0, maxlen;
-	bool fwdl;
-
-	if (!d)
-		return -ENODEV;
-
-	mutex_lock(&lock);
-	if (!size)
-		goto exit;
-
-	fwdl = d->state == PN547_STATE_FWDL;
-	maxlen = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
-	if (size > maxlen)
-		size = maxlen;
-retry:
-	ret = i2c_master_send(d->i2c_client, buf, size);
-	if (ret == -ENODEV || ret == -ENOTCONN) {
-		retry_count++;
-		if (retry_count > MAX_I2C_RETRY_COUNT) {
-			dev_err(d->dev, "%s: i2c err %d, retry count expired\n",
-				__func__, ret);
-			goto exit;
-		}
-		usleep_range(10000, 11000);
-		goto retry;
-	}
-
-	if (ret < 0) {
-		dev_err(d->dev, "%s: i2c err %d\n", __func__, ret);
-		goto exit;
-	}
-	dev_dbg(d->dev, "%s: %d bytes write\n", __func__, ret);
-	dump_buf(d, (u8 *)buf, ret);
-exit:
-	mutex_unlock(&lock);
-	return ret;
-}
-
-static ssize_t pn547_dev_init_deinit_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-
-	if (!d)
-		return -ENODEV;
-
-	mutex_lock(&lock);
-	if (!strncmp(buf, init_deinit_cmds[PN547_INIT], PAGE_SIZE)) {
-		dev_dbg(d->dev, "%s: PN547_INIT\n", __func__);
-		if (d->busy) {
-			mutex_unlock(&lock);
-			return -EBUSY;
-		}
-		d->busy = true;
-	} else if (!strncmp(buf, init_deinit_cmds[PN547_DEINIT], PAGE_SIZE)) {
-		dev_dbg(d->dev, "%s: PN547_DEINIT\n", __func__);
-		if (atomic_read(&d->res_ready))
-			dev_dbg(d->dev, "%s: interruption is ignored\n",
-				__func__);
-		atomic_set(&d->res_ready, 0);
-		d->busy = false;
-	}
-	mutex_unlock(&lock);
-	return 0;
-}
-
-static ssize_t pn547_dev_set_pwr_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t size)
-{
-	struct pn547_dev *d = dev_get_drvdata(dev);
-	int state, ret = 0;
-
-	disable_irq(d->i2c_client->irq);
-	mutex_lock(&lock);
-	if (!strncmp(buf, set_pwr_cmds[PN547_SET_PWR_OFF], PAGE_SIZE)) {
-		dev_dbg(d->dev, "%s: PN547_SET_PWR_OFF\n", __func__);
-		state = PN547_STATE_OFF;
-	} else if (!strncmp(buf, set_pwr_cmds[PN547_SET_PWR_ON], PAGE_SIZE)) {
-		dev_dbg(d->dev, "%s: PN547_SET_PWR_ON\n", __func__);
-		state = PN547_STATE_ON;
-	} else if (!strncmp(buf, set_pwr_cmds[PN547_SET_PWR_FWDL], PAGE_SIZE)) {
-		dev_dbg(d->dev, "%s: PN547_SET_PWR_FWDL\n", __func__);
-		state = PN547_STATE_FWDL;
-	} else {
-		dev_err(d->dev, "%s: illegal command\n", __func__);
-		ret = -EINVAL;
-	}
-
-	if (!ret) {
-		ret = pn547_dev_chip_config(state, d);
-	    if (IS_ERR_VALUE(ret)) {
-			dev_err(d->dev, "%s: chip config err %d\n",
-				__func__, ret);
-			goto exit;
-		}
-		if (d->state != state) {
-			d->state = state;
-			atomic_set(&d->res_ready, 0);
-	    }
-	} else {
-		dev_err(d->dev, "%s failed\n", __func__);
-	}
-exit:
-	mutex_unlock(&lock);
-	enable_irq(d->i2c_client->irq);
-	return strnlen(buf, PAGE_SIZE);
-}
-
-static struct device_attribute pn547_sysfs_attrs[] = {
-	__ATTR(init_deinit, S_IWUSR, NULL, pn547_dev_init_deinit_store),
-	__ATTR(set_pwr, S_IWUSR, NULL, pn547_dev_set_pwr_store),
-	__ATTR(res_ready, S_IRUSR, pn547_dev_res_ready_show, NULL),
-	__ATTR(send_cmd, S_IWUSR, NULL, pn547_dev_send_cmd_store),
-	__ATTR(recv_rsp, S_IRUSR | S_IWUSR, pn547_dev_recv_resp_show,
-		pn547_dev_recv_resp_store),
-};
-
-static int pn547_dev_create_sysfs_entries(struct i2c_client *dev)
-{
-	int i, ret = 0;
-
-	for (i = 0; i < ARRAY_SIZE(pn547_sysfs_attrs); i++) {
-		ret = device_create_file(&dev->dev, &pn547_sysfs_attrs[i]);
-		if (ret) {
-			for (; i >= 0; i--)
-				device_remove_file(&dev->dev,
-						&pn547_sysfs_attrs[i]);
-			goto exit;
-		}
-	}
-exit:
-	return ret;
-}
-
-static void pn547_dev_remove_sysfs_entries(struct i2c_client *dev)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(pn547_sysfs_attrs); i++)
-		device_remove_file(&dev->dev, &pn547_sysfs_attrs[i]);
+	gpio_free(pdata->firm_gpio);
+	pn547_clk_disable();
 }
 
 static int pn547_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	struct pn547_dev *dev;
-	struct pn547_i2c_platform_data *pdata;
-	struct pinctrl *pinctrl;
-	struct clk *nfc_clk = NULL;
 	int ret = 0;
+	struct pn547_i2c_platform_data *platform_data;
+	struct pn547_dev *pn547_dev;
+	struct pinctrl *pinctrl;
 
-	pdata = kzalloc(sizeof(struct pn547_i2c_platform_data),
+	dev_dbg(&client->dev, "%s: enter\n", __func__);
+
+	platform_data = kzalloc(sizeof(struct pn547_i2c_platform_data),
 			GFP_KERNEL);
-	if (!pdata) {
-		dev_err(&client->dev, "failed to get allocate memory\n");
+	if (!platform_data) {
 		ret = -ENOMEM;
-		goto probe_pdata;
+		goto err_platform_data;
+	}
+
+	if (platform_data == NULL) {
+		ret = -ENODEV;
+		goto err_platform_data;
 	}
 
 	pinctrl = devm_pinctrl_get(&client->dev);
 	if (IS_ERR(pinctrl)) {
 		dev_err(&client->dev, "devm_pinctrl_get error\n");
-		goto probe_pinctrl;
+		goto err_pinctrl;
 	}
 
-	ret = pn547_parse_dt(&client->dev, pdata);
+	ret = pn547_parse_dt(&client->dev, platform_data);
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to parse device tree: %d\n", ret);
-		goto probe_parse_dt;
+		goto err_parse_dt;
 	}
 
-	ret = pn547_gpio_request(&client->dev, pdata);
+	ret = pn547_gpio_request(&client->dev, platform_data);
 	if (ret) {
 		dev_err(&client->dev, "failed to request gpio\n");
-		goto probe_gpio_request;
+		goto err_gpio_request;
 	}
-	dev_dbg(&client->dev, "%s:\n", __func__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		dev_err(&client->dev, "%s: i2c check failed\n", __func__);
+		dev_err(&client->dev, "%s: need I2C_FUNC_I2C\n", __func__);
 		ret = -ENODEV;
-		goto probe_i2c;
+		goto err_i2c;
 	}
 
-	dev = kzalloc(sizeof(struct pn547_dev), GFP_KERNEL);
-	if (!dev) {
-		dev_err(&client->dev, "%s: no memory\n", __func__);
+	pn547_dev = kzalloc(sizeof(*pn547_dev), GFP_KERNEL);
+	if (pn547_dev == NULL) {
+		dev_err(&client->dev,
+				"failed to allocate memory for module data\n");
 		ret = -ENOMEM;
-		goto probe_mem;
-	}
-	dev->i2c_client = client;
-	dev->dev = &client->dev;
-	dev->pdata = pdata;
-	dev->pinctrl = pinctrl;
-	init_waitqueue_head(&dev->wq);
-	wake_lock_init(&dev->wake_lock, WAKE_LOCK_SUSPEND, "pn547");
-	i2c_set_clientdata(client, dev);
-	dev->state = PN547_STATE_UNKNOWN;
-
-	ret = request_threaded_irq(client->irq, NULL, pn547_dev_irq_handler,
-			IRQF_TRIGGER_RISING | IRQF_ONESHOT, client->name, dev);
-	if (IS_ERR_VALUE(ret)) {
-		dev_err(&client->dev, "%s: irq request err %d\n",
-			__func__, ret);
-		goto probe_irq;
+		goto err_exit;
 	}
 
-	nfc_clk = clk_get(&client->dev, "nfc_clk");
-	if (IS_ERR(nfc_clk)) {
-		dev_err(&client->dev, "Couldn't get nfc_clk\n");
-		goto probe_clk;
-	}
-	ret = clk_prepare_enable(nfc_clk);
+	pn547_dev->irq_gpio = platform_data->irq_gpio;
+	pn547_dev->ven_gpio = platform_data->ven_gpio;
+	pn547_dev->firm_gpio = platform_data->firm_gpio;
+	pn547_dev->client = client;
+	pn547_dev->dev = &client->dev;
+	pn547_dev->pinctrl = pinctrl;
+	pn547_dev->state = PN547_STATE_UNKNOWN;
+
+	/* Initialise mutex and work queue */
+	init_waitqueue_head(&pn547_dev->read_wq);
+	mutex_init(&pn547_dev->read_mutex);
+	spin_lock_init(&pn547_dev->irq_enabled_lock);
+
+	pn547_dev->pn547_device.minor = MISC_DYNAMIC_MINOR;
+	pn547_dev->pn547_device.name = PN547_DEVICE_NAME;
+	pn547_dev->pn547_device.fops = &pn547_dev_fops;
+
+	ret = misc_register(&pn547_dev->pn547_device);
 	if (ret) {
-		dev_err(&client->dev, "nfc_clk enable is failed\n");
-		goto probe_clk_enable;
+		dev_err(&client->dev, "%s: misc_register failed\n", __func__);
+		goto err_misc_register;
 	}
 
-	ret = pn547_dev_create_sysfs_entries(dev->i2c_client);
-	if (IS_ERR_VALUE(ret)) {
-		dev_err(&client->dev, "%s: create sysfs entries err %d\n",
-			__func__, ret);
-		goto probe_sysfs;
-	}
-	return ret;
+	ret = pn547_clk_enable(&client->dev);
 
-probe_sysfs:
-	free_irq(client->irq, dev);
-probe_clk_enable:
-	clk_put(nfc_clk);
-probe_clk:
-probe_irq:
-	i2c_set_clientdata(client, NULL);
-	wake_lock_destroy(&dev->wake_lock);
-	kzfree(dev);
-probe_mem:
-probe_i2c:
-	pn547_gpio_release(pdata);
-probe_gpio_request:
-probe_parse_dt:
+	/* NFC IRQ */
+	pn547_dev->irq_enabled = true;
+	ret = request_irq(client->irq, pn547_dev_irq_handler,
+			  IRQF_TRIGGER_RISING, client->name, pn547_dev);
+	if (ret) {
+		dev_err(&client->dev, "%s: request_irq failed\n", __func__);
+		goto err_request_irq_failed;
+	}
+	pn547_disable_irq(pn547_dev);
+
+	device_init_wakeup(&client->dev, true);
+	device_set_wakeup_capable(&client->dev, true);
+	i2c_set_clientdata(client, pn547_dev);
+	pn547_dev->irq_wake_up = false;
+
+	dev_err(&client->dev, "%s: probing pn547 exited successfully\n",
+				__func__);
+	return 0;
+
+err_request_irq_failed:
+	misc_deregister(&pn547_dev->pn547_device);
+err_misc_register:
+	mutex_destroy(&pn547_dev->read_mutex);
+	kfree(pn547_dev);
+err_exit:
+err_i2c:
+	pn547_gpio_release(platform_data);
+err_gpio_request:
+err_parse_dt:
 	devm_pinctrl_put(pinctrl);
-probe_pinctrl:
-	kzfree(pdata);
-probe_pdata:
-	dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+err_pinctrl:
+	kzfree(platform_data);
+err_platform_data:
+	dev_err(&client->dev,
+	"%s: probing pn547 failed, check hardware\n", __func__);
 	return ret;
 }
 
 static int pn547_remove(struct i2c_client *client)
 {
-	struct pn547_dev *d = i2c_get_clientdata(client);
+	struct pn547_dev *pn547_dev;
 
-	pn547_dev_remove_sysfs_entries(client);
-	free_irq(client->irq, d);
-	i2c_set_clientdata(client, NULL);
-	wake_lock_destroy(&d->wake_lock);
-	pn547_pinctrl_destroy(d);
-	pn547_gpio_release(d->pdata);
-	kzfree(d->pdata);
-	kzfree(d);
+	pn547_dev = i2c_get_clientdata(client);
+	free_irq(client->irq, pn547_dev);
+	misc_deregister(&pn547_dev->pn547_device);
+	mutex_destroy(&pn547_dev->read_mutex);
+	pn547_pinctrl_destroy(pn547_dev);
+	gpio_free(pn547_dev->irq_gpio);
+	gpio_free(pn547_dev->ven_gpio);
+	gpio_free(pn547_dev->firm_gpio);
+
+	kfree(pn547_dev);
+
 	return 0;
 }
 
-static int pn547_pm_suspend(struct device *dev)
+static int pn547_suspend(struct device *dev)
 {
-	int ret;
-	struct pn547_dev *d = dev_get_drvdata(dev);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct pn547_dev *pn547_dev = i2c_get_clientdata(client);
 
-	dev_dbg(d->dev, "%s:\n", __func__);
-	if (!mutex_trylock(&lock))
-		return -EAGAIN;
-	if (d->busy) {
-		if (atomic_read(&d->res_ready)) {
-			wake_lock_timeout(&d->wake_lock,
-				PN547_WAKE_LOCK_TIMEOUT);
-			mutex_unlock(&lock);
-			return -EAGAIN;
-		}
-		ret = irq_set_irq_wake(d->i2c_client->irq, 1);
-		if (IS_ERR_VALUE(ret))
-			dev_err(dev, "%s: irq wake err %d\n", __func__, ret);
+	if (device_may_wakeup(&client->dev) && pn547_dev->irq_enabled) {
+		if (!enable_irq_wake(client->irq))
+			pn547_dev->irq_wake_up = true;
 	}
-	mutex_unlock(&lock);
+
 	return 0;
 }
 
-static int pn547_pm_resume(struct device *dev)
+static int pn547_resume(struct device *dev)
 {
-	struct pn547_dev *d = dev_get_drvdata(dev);
-	int ret;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct pn547_dev *pn547_dev = i2c_get_clientdata(client);
 
-	dev_dbg(d->dev, "%s:\n", __func__);
-	mutex_lock(&lock);
-	if (d->busy) {
-		ret = irq_set_irq_wake(d->i2c_client->irq, 0);
-		if (IS_ERR_VALUE(ret))
-			dev_err(dev, "%s: irq wake err %d\n", __func__, ret);
+	if (device_may_wakeup(&client->dev) && pn547_dev->irq_wake_up) {
+		if (!disable_irq_wake(client->irq))
+			pn547_dev->irq_wake_up = false;
 	}
-	mutex_unlock(&lock);
+
 	return 0;
 }
 
@@ -665,34 +613,23 @@ static struct of_device_id pn547_match_table[] = {
 };
 
 static const struct dev_pm_ops pn547_pm_ops = {
-	.suspend	= pn547_pm_suspend,
-	.resume		= pn547_pm_resume,
+	.suspend = pn547_suspend,
+	.resume  = pn547_resume,
 };
 
 static struct i2c_driver pn547_driver = {
-	.id_table	= pn547_id,
-	.probe		= pn547_probe,
-	.remove		= pn547_remove,
-	.driver		= {
-		.owner		= THIS_MODULE,
-		.name		= PN547_DEVICE_NAME,
-		.pm		= &pn547_pm_ops,
-		.of_match_table	= pn547_match_table,
+	.id_table = pn547_id,
+	.probe = pn547_probe,
+	.remove = pn547_remove,
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = PN547_DEVICE_NAME,
+		.of_match_table = pn547_match_table,
+		.pm = &pn547_pm_ops,
 	},
 };
 
-static int __init pn547_dev_init(void)
-{
-	return i2c_add_driver(&pn547_driver);
-}
-
-static void __exit pn547_dev_exit(void)
-{
-	i2c_del_driver(&pn547_driver);
-}
-
-module_init(pn547_dev_init);
-module_exit(pn547_dev_exit);
+module_i2c_driver(pn547_driver);
 
 MODULE_AUTHOR("Sylvain Fonteneau");
 MODULE_DESCRIPTION("NFC PN547 driver");
