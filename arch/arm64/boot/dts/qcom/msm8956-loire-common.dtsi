@@ -1716,7 +1716,7 @@
 			pins = "gpio48";
 			drive-strength = <2>;
 			bias-disable;
-			output-low;
+			output-high;
 		};
 	};
 
