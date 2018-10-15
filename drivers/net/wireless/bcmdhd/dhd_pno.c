@@ -3527,10 +3527,6 @@ dhd_process_full_gscan_result(dhd_pub_t *dhd, const void *data, uint32 len, int 
 			dtoh32(gscan_result->buflen)));
 		goto exit;
 	}
-	if (!gscan_result->bss_info) {
-		DHD_ERROR(("Invalid gscan bss info (NULL pointer)\n"));
-		goto exit;
-	}
 	bi = &gscan_result->bss_info[0].info;
 	bi_length = dtoh32(bi->length);
 	if (bi_length != (dtoh32(gscan_result->buflen) -
