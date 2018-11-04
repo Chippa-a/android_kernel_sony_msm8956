@@ -10,6 +10,11 @@
  * GNU General Public License for more details.
  *
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2013 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -3404,6 +3409,8 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	u32 ctrl_status = 0;
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
+	char msg[SUBSYS_CRASH_REASON_LEN];
+
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: NULL device\n", __func__);
 		return;
@@ -3432,6 +3439,9 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	rc = venus_hfi_prepare_pc(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to prepare for PC, rc : %d\n", rc);
+		snprintf(msg, sizeof(msg),
+			"Failed to prepare for PC, rc : %d\n", rc);
+		subsystem_crash_reason("venus", msg);
 		return;
 	}
 
@@ -3496,6 +3506,15 @@ skip_power_off:
 	return;
 }
 
+static void venus_hfi_crash_reason(struct hfi_sfr_struct *vsfr)
+{
+	char msg[SUBSYS_CRASH_REASON_LEN];
+
+	snprintf(msg, sizeof(msg), "SFR Message from FW : %s",
+						vsfr->rg_data);
+	subsystem_crash_reason("venus", msg);
+}
+
 static void print_sfr_message(
 	struct venus_hfi_device *device, void *packet)
 {
@@ -3531,6 +3550,7 @@ static void print_sfr_message(
 				vsfr->rg_data[vsfr_size - 1] = '\0';
 			dprintk(VIDC_ERR, "SFR Message from FW : %s\n",
 				vsfr->rg_data);
+			venus_hfi_crash_reason(vsfr);
 		}
 	}
 }

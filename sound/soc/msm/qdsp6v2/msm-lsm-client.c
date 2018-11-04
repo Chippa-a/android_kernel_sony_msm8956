@@ -1313,8 +1313,7 @@ static int msm_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				__func__, "SET_MODULE_PARAMS_32");
 			err = -EINVAL;
 			goto done;
-		}
-
+                }
 		if (copy_from_user(&p_data_32, arg,
 				   sizeof(p_data_32))) {
 			dev_err(rtd->dev,
@@ -1522,8 +1521,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 				__func__, "SET_MODULE_PARAMS");
 			err = -EINVAL;
 			goto done;
-		}
-
+                }
 		if (copy_from_user(&p_data, arg,
 				   sizeof(p_data))) {
 			dev_err(rtd->dev,
