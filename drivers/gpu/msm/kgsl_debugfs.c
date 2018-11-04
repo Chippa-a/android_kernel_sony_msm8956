@@ -113,7 +113,7 @@ static int print_mem_entry(void *data, void *ptr)
 {
 	struct seq_file *s = data;
 	struct kgsl_mem_entry *entry = ptr;
-	char flags[8];
+	char flags[9];
 	char usage[16];
 	struct kgsl_memdesc *m = &entry->memdesc;
 	unsigned int usermem_type = kgsl_memdesc_usermem_type(m);
@@ -126,7 +126,8 @@ static int print_mem_entry(void *data, void *ptr)
 	flags[4] = get_cacheflag(m);
 	flags[5] = kgsl_memdesc_use_cpu_map(m) ? 'p' : '-';
 	flags[6] = (m->useraddr) ? 'Y' : 'N';
-	flags[7] = '\0';
+	flags[7] = kgsl_memdesc_is_secured(m) ?  's' : '-';
+	flags[8] = '\0';
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
@@ -134,7 +135,7 @@ static int print_mem_entry(void *data, void *ptr)
 		kgsl_get_egl_counts(entry, &egl_surface_count,
 						&egl_image_count);
 
-	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d %16llu %6d %6d",
+	seq_printf(s, "%pK %pK %16llu %5d %9s %10s %16s %5d %16llu %6d %6d",
 			(uint64_t *)(uintptr_t) m->gpuaddr,
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
@@ -204,7 +205,7 @@ static void *process_mem_seq_next(struct seq_file *s, void *ptr,
 static int process_mem_seq_show(struct seq_file *s, void *ptr)
 {
 	if (ptr == SEQ_START_TOKEN) {
-		seq_printf(s, "%16s %16s %16s %5s %8s %10s %16s %5s %16s %6s %6s\n",
+		seq_printf(s, "%16s %16s %16s %5s %9s %10s %16s %5s %16s %6s %6s\n",
 			"gpuaddr", "useraddr", "size", "id", "flags", "type",
 			"usage", "sglen", "mapsize", "eglsrf", "eglimg");
 		return 0;
