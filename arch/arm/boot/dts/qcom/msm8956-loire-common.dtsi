@@ -115,21 +115,17 @@
 		status = "okay";
 	};
 
-	bluesleep {
-		compatible = "bcm,bluesleep";
-		bt_host_wake = <&msm_gpio 17 0x00>; /* BT_HOST_WAKE */
-		bt_ext_wake = <&msm_gpio 18 0x00>; /* BT_DEV_WAKE */
+	bt_nitrous {
+		compatible = "goog,nitrous";
+		uart-port = <0>;
+		power-gpio = <&msm_gpio 19 0>;
+		host-wake-gpio = <&msm_gpio 17 0>;
+		host-wake-polarity = <0>;
+		dev-wake-gpio = <&msm_gpio 18 0>;
+		dev-wake-polarity = <0>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <17 0>;
 		interrupt-names = "host_wake";
-		pinctrl-names = "wake_irq_active", "wake_irq_suspend";
-		pinctrl-0 = <&msm_gpio_17_act &msm_gpio_18_def>;
-		pinctrl-1 = <&msm_gpio_17_sus &msm_gpio_18_def>;
-	};
-
-	bcm43xx {
-		compatible = "bcm,bcm43xx";
-		bcm,reg-on-gpio = <&msm_gpio 19 0x00>; /* BT_REG_ON */
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&msm_gpio_19_def>;
 		pinctrl-1 = <&msm_gpio_19_def>;
