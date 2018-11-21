@@ -285,6 +285,7 @@ struct sdhci_msm_host {
 	struct workqueue_struct *pm_qos_wq;
 	bool need_dll_user_ctl;
 	struct sdhci_msm_dll_hsr *dll_hsr;
+	struct device_attribute mmc_manual_gc_attr;
 };
 
 extern char *saved_command_line;
