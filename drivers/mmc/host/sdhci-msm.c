@@ -3207,6 +3207,40 @@ void sdhci_msm_reset_enter(struct sdhci_host *host, u8 mask)
 }
 
 static ssize_t
+show_mmc_manual_gc(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (mmc_card_support_auto_bkops(host->mmc->card))
+		return scnprintf(buf, PAGE_SIZE, "%s", "disabled\n");
+
+	return scnprintf(buf, PAGE_SIZE, "%s", "disabled\n");
+}
+
+static ssize_t
+store_mmc_manual_gc(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	uint32_t value;
+	bool enable;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &value);
+	if (ret)
+		goto out;
+	enable = !!value;
+
+	if (mmc_card_support_auto_bkops(host->mmc->card))
+		return count;
+
+out:
+	return count;
+}
+
+static ssize_t
 show_eol(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -4028,6 +4062,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (err)
 		pr_err("%s: failed to create sysfs group with err %d\n",
 							 __func__, err);
+
+	msm_host->mmc_manual_gc_attr.show =
+			show_mmc_manual_gc;
+	msm_host->mmc_manual_gc_attr.store =
+			store_mmc_manual_gc;
+	sysfs_attr_init(&msm_host->mmc_manual_gc_attr.attr);
+	msm_host->mmc_manual_gc_attr.attr.name =
+			"manual_gc";
+	msm_host->mmc_manual_gc_attr.attr.mode = 0664;
+	ret = device_create_file(&msm_host->pdev->dev,
+			&msm_host->mmc_manual_gc_attr);
+	if (ret)
+		dev_err(&msm_host->pdev->dev, "%s: fail to create mmc_manual_gc_attr (%d)\n",
+			__func__, ret);
 
 	/* Successful initialization */
 	goto out;
