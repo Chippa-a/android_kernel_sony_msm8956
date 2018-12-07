@@ -66,6 +66,7 @@
 #define FPC_IOCWPREPARE	_IOW(FPC_IOC_MAGIC, 0x01, int)
 #define FPC_IOCWDEVWAKE	_IOW(FPC_IOC_MAGIC, 0x02, int)
 #define FPC_IOCWRESET	_IOW(FPC_IOC_MAGIC, 0x03, int)
+#define FPC_IOCWAWAKE	_IOW(FPC_IOC_MAGIC, 0x04, int)
 #define FPC_IOCRPREPARE	_IOR(FPC_IOC_MAGIC, 0x81, int)
 #define FPC_IOCRDEVWAKE	_IOR(FPC_IOC_MAGIC, 0x82, int)
 #define FPC_IOCRIRQ	_IOR(FPC_IOC_MAGIC, 0x83, int)
@@ -112,6 +113,11 @@ struct fpc1145_data {
 
 	struct mutex lock;
 	bool prepared;
+};
+
+struct fpc1145_awake_args {
+	int awake;
+	unsigned int timeout;
 };
 
 static struct fpc1145_data *fpc1145_drvdata = NULL;
@@ -289,6 +295,8 @@ static long fpc1145_device_ioctl(struct file *fp, unsigned int cmd,
 {
 	int8_t val = 0;
 	int rc = -EINVAL;
+	unsigned int timeout = 0;
+	struct fpc1145_awake_args awake_args;
 	void __user *usr = (void __user *)arg;
 
 	switch (cmd) {
@@ -304,6 +312,24 @@ static long fpc1145_device_ioctl(struct file *fp, unsigned int cmd,
 	case FPC_IOCWRESET:
 		dev_dbg(fpc1145_drvdata->dev, "Resetting device\n");
 		rc = hw_reset(fpc1145_drvdata);
+		break;
+	case FPC_IOCWAWAKE:
+		rc = copy_from_user(&awake_args,
+				(struct fpc1145_awake_args *)usr,
+				sizeof(awake_args));
+		if (rc)
+			break;
+		timeout = min(awake_args.timeout,
+				(unsigned int)FPC_MAX_HAL_PROCESSING_TIME);
+		if (awake_args.awake) {
+			dev_dbg(fpc1145_drvdata->dev,
+					"Extending wakelock for %dms\n",
+					timeout);
+			pm_wakeup_event(fpc1145_drvdata->dev, timeout);
+		} else {
+			dev_dbg(fpc1145_drvdata->dev, "Relaxing wakelock\n");
+			pm_relax(fpc1145_drvdata->dev);
+		}
 		break;
 	case FPC_IOCRPREPARE:
 		rc = put_user((int8_t)fpc1145_drvdata->prepared,
