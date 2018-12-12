@@ -94,6 +94,7 @@ obj-$(CONFIG_MSM_TEST_PACMAN)        += msm_test_pacman.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_MSM_VSENS) += vsens.o
 obj-$(CONFIG_ARCH_MSM8916) += debug_memory.o
+obj-$(CONFIG_ARCH_SONY_LOIRE) += board-sony.o
 obj-$(CONFIG_RAMDUMP_TAGS) += board-rdtags.o
 CFLAGS_board-rdtags.o  := \
 	-D"INFO_PRODUCT=\"$(if $(TARGET_PRODUCT),$(TARGET_PRODUCT),unknown)\"" \
