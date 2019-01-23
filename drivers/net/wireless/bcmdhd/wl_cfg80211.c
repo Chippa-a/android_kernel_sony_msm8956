@@ -10831,6 +10831,7 @@ wl_cfg80211_verify_bss(struct bcm_cfg80211 *cfg, struct net_device *ndev)
 			ssid->SSID, ssid->SSID_len, WLAN_CAPABILITY_ESS,
 			WLAN_CAPABILITY_ESS);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
+		cfg->wdev->ssid_len = ssid->SSID_len;
 		if (bss || (count > 5)) {
 			break;
 		}
