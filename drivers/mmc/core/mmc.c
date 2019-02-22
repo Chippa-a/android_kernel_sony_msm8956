@@ -3055,6 +3055,9 @@ static int mmc_reset(struct mmc_host *host)
 		return ret;
 	}
 
+	if (host->inlinecrypt_support)
+		host->inlinecrypt_reset_needed = true;
+
 	ret = mmc_init_card(host, host->card->ocr, host->card);
 	if (ret) {
 		pr_err("%s: %s: mmc_init_card failed (%d)\n",
