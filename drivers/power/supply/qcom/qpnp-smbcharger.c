@@ -3010,10 +3010,12 @@ static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 		return 0;
 	}
 
-	rc = msm_bcl_read(BCL_PARAM_CURRENT, &ibat_now);
+	rc = msm_bcl_read(BCL_HIGH_IBAT, &ibat_now);
 	if (rc) {
-		pr_smb(PR_STATUS, "BCL current read failed: %d\n", rc);
+		pr_smb(PR_STATUS, "BCL ibat read failed: %d\n", rc);
 		return 0;
+	} else {
+		ibat_now = ibat_now * 1000;
 	}
 
 	rbatt_uohm = esr_uohm + chip->rpara_uohm + chip->rslow_uohm;
