@@ -63,6 +63,42 @@
 #define BCL_STD_VBAT_NR       9
 #define BCL_VBAT_NO_READING   127
 
+#define BCL_VBAT_MIN_LEGACY   0x58
+#define BCL_IBAT_MAX_LEGACY   0x59
+#define BCL_V_GAIN_BAT        0x60
+#define BCL_I_GAIN_RSENSE     0x61
+#define BCL_I_OFFSET_RSENSE   0x62
+#define BCL_I_GAIN_BATFET     0x63
+#define BCL_I_OFFSET_BATFET   0x64
+#define BCL_I_SENSE_SRC       0x65
+#define BCL_VBAT_MIN_CLEAR    0x66
+#define BCL_IBAT_MAX_CLEAR    0x67
+#define BCL_VBAT_TRIP         0x68
+#define BCL_IBAT_TRIP         0x69
+#define BCL_CONSTANT_NUM      32
+
+#define PON_SPARE_FULL_CURRENT		0x0
+#define PON_SPARE_DERATED_CURRENT	0x1
+
+#define READ_CONV_FACTOR(_node, _key, _val, _ret, _dest) do { \
+		_ret = of_property_read_u32(_node, _key, &_val); \
+		if (_ret) { \
+			pr_err("Error reading key:%s. err:%d\n", _key, _ret); \
+			return _ret; \
+		} \
+		_dest = _val; \
+	} while (0)
+
+#define READ_OPTIONAL_PROP(_node, _key, _val, _ret, _dest) do { \
+		_ret = of_property_read_u32(_node, _key, &_val); \
+		if (_ret && _ret != -EINVAL) { \
+			pr_err("Error reading key:%s. err:%d\n", _key, _ret); \
+			return _ret; \
+		} else if (!_ret) { \
+			_dest = _val; \
+		} \
+	} while (0)
+
 enum bcl_dev_type {
 	BCL_HIGH_IBAT,
 	BCL_VHIGH_IBAT,
@@ -78,6 +114,14 @@ struct bcl_peripheral_data {
 	long int		trip_temp;
 	int                     trip_val;
 	int                     last_val;
+	int                     scaling_factor;
+	int                     offset_factor_num;
+	int                     offset_factor_den;
+	int                     offset;
+	int                     gain_factor_num;
+	int                     gain_factor_den;
+	int                     gain;
+	int                     inhibit_derating_ua;
 	struct mutex            state_trans_lock;
 	bool			irq_enabled;
 	struct thermal_zone_of_device_ops ops;
@@ -88,12 +132,19 @@ struct bcl_device {
 	struct regmap			*regmap;
 	uint16_t			fg_bcl_addr;
 	uint16_t			fg_lmh_addr;
+	uint16_t			pon_spare_addr;
+	int					i_src;
 	struct notifier_block		psy_nb;
 	struct work_struct		soc_eval_work;
 	struct bcl_peripheral_data	param[BCL_TYPE_MAX];
 };
 
 static struct bcl_device *bcl_perph;
+static struct power_supply_desc bcl_psy_d;
+static struct power_supply *bcl_psy;
+static const char bcl_psy_name[] = "fg_adc";
+static bool calibration_done;
+static bool is_legacy_bcl;
 static int vbat_low[BCL_STD_VBAT_NR] = {
 		2400, 2500, 2600, 2700, 2800, 2900,
 		3000, 3100, 3200};
@@ -145,22 +196,85 @@ static int bcl_write_register(int16_t reg_offset, uint8_t data)
 
 static void convert_vbat_to_adc_val(int *val)
 {
-	*val = (*val * 1000) / BCL_VBAT_SCALING;
+	if (is_legacy_bcl) {
+		struct bcl_peripheral_data *perph_data = NULL;
+
+		if (!bcl_perph)
+			return;
+
+		perph_data = &bcl_perph->param[BCL_LOW_VBAT];
+
+		*val = (*val * 100
+			/ (100 + (perph_data->gain_factor_num
+			* perph_data->gain) * BCL_CONSTANT_NUM
+			/ perph_data->gain_factor_den))
+			/ perph_data->scaling_factor;
+	} else {
+		*val = (*val * 1000) / BCL_VBAT_SCALING;
+	}
 }
 
 static void convert_adc_to_vbat_val(int *val)
 {
-	*val = *val * BCL_VBAT_SCALING / 1000;
+	if (is_legacy_bcl) {
+		struct bcl_peripheral_data *perph_data = NULL;
+
+		if (!bcl_perph)
+			return;
+
+		perph_data = &bcl_perph->param[BCL_LOW_VBAT];
+
+		*val = ((*val + 2) * perph_data->scaling_factor)
+			* (100 + (perph_data->gain_factor_num
+			* perph_data->gain)
+			* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
+			/ 100;
+	} else {
+		*val = *val * BCL_VBAT_SCALING / 1000;
+	}
 }
 
 static void convert_ibat_to_adc_val(int *val)
 {
-	*val = *val / BCL_IBAT_SCALING;
+	if (is_legacy_bcl) {
+		struct bcl_peripheral_data *perph_data = NULL;
+
+		if (!bcl_perph)
+			return;
+
+		perph_data = &bcl_perph->param[BCL_HIGH_IBAT];
+
+		*val = (*val * 100
+			/ (100 + (perph_data->gain_factor_num
+			* perph_data->gain)
+			* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
+			- (perph_data->offset_factor_num * perph_data->offset)
+			/ perph_data->offset_factor_den)
+			/  perph_data->scaling_factor;
+	} else {
+		*val = *val / BCL_IBAT_SCALING;
+	}
 }
 
 static void convert_adc_to_ibat_val(int *val)
 {
-	*val = *val * BCL_IBAT_SCALING;
+	if (is_legacy_bcl) {
+		struct bcl_peripheral_data *perph_data = NULL;
+
+		if (!bcl_perph)
+			return;
+
+		perph_data = &bcl_perph->param[BCL_HIGH_IBAT];
+
+		*val = (*val * perph_data->scaling_factor
+			+ (perph_data->offset_factor_num * perph_data->offset)
+			/ perph_data->offset_factor_den)
+			* (100 + (perph_data->gain_factor_num
+			* perph_data->gain) * BCL_CONSTANT_NUM /
+			perph_data->gain_factor_den) / 100;
+	} else {
+		*val = *val * BCL_IBAT_SCALING;
+	}
 }
 
 static int bcl_set_ibat(void *data, int low, int high)
@@ -189,7 +303,10 @@ static int bcl_set_ibat(void *data, int low, int high)
 	convert_ibat_to_adc_val(&thresh_value);
 	val = (int8_t)thresh_value;
 	if (&bcl_perph->param[BCL_HIGH_IBAT] == bat_data) {
-		addr = BCL_IBAT_HIGH;
+		if (is_legacy_bcl)
+			addr = BCL_IBAT_TRIP;
+		else
+			addr = BCL_IBAT_HIGH;
 		pr_debug("ibat high threshold:%d mA ADC:0x%02x\n",
 				ibat_ua, val);
 	} else if (&bcl_perph->param[BCL_VHIGH_IBAT] == bat_data) {
@@ -209,6 +326,29 @@ static int bcl_set_ibat(void *data, int low, int high)
 	if (bat_data->irq_num && !bat_data->irq_enabled) {
 		enable_irq(bat_data->irq_num);
 		bat_data->irq_enabled = true;
+	}
+
+	if (is_legacy_bcl) {
+		if (bcl_perph->param[BCL_HIGH_IBAT].inhibit_derating_ua == 0
+				|| bcl_perph->pon_spare_addr == 0)
+			goto set_trip_exit;
+
+		ret = bcl_write_general_register(bcl_perph->pon_spare_addr,
+				PON_SPARE_FULL_CURRENT, val);
+		if (ret) {
+			pr_debug("Error accessing PON register. err:%d\n", ret);
+			goto set_trip_exit;
+		}
+		thresh_value = ibat_ua
+			- bcl_perph->param[BCL_HIGH_IBAT].inhibit_derating_ua;
+		convert_ibat_to_adc_val(&thresh_value);
+		val = (int8_t)thresh_value;
+		ret = bcl_write_general_register(bcl_perph->pon_spare_addr,
+				PON_SPARE_DERATED_CURRENT, val);
+		if (ret) {
+			pr_debug("Error accessing PON register. err:%d\n", ret);
+			goto set_trip_exit;
+		}
 	}
 
 set_trip_exit:
@@ -247,7 +387,10 @@ static int bcl_set_vbat(void *data, int low, int high)
 	 * trip thresholds
 	 */
 	if (&bcl_perph->param[BCL_LOW_VBAT] == bat_data) {
-		addr = BCL_VBAT_ADC_LOW;
+		if (is_legacy_bcl)
+			addr = BCL_VBAT_TRIP;
+		else
+			addr = BCL_VBAT_ADC_LOW;
 		pr_debug("vbat low threshold:%d mv ADC:0x%02x\n",
 				vbat_uv, val);
 	} else if (&bcl_perph->param[BCL_VLOW_VBAT] == bat_data) {
@@ -307,8 +450,11 @@ static int bcl_clear_vbat_min(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_MAX_MIN_CLR,
-			BIT(BCL_VBAT_MIN_CLR));
+	if (is_legacy_bcl)
+		ret = bcl_write_register(BCL_VBAT_MIN_CLEAR, BIT(7));
+	else
+		ret = bcl_write_register(BCL_MAX_MIN_CLR,
+				BIT(BCL_VBAT_MIN_CLR));
 	if (ret)
 		pr_err("Error in clearing vbat min reg. err:%d", ret);
 
@@ -319,8 +465,11 @@ static int bcl_clear_ibat_max(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_MAX_MIN_CLR,
-			BIT(BCL_IBAT_MAX_CLR));
+	if (is_legacy_bcl)
+		ret = bcl_write_register(BCL_IBAT_MAX_CLEAR, BIT(7));
+	else
+		ret = bcl_write_register(BCL_MAX_MIN_CLR,
+				BIT(BCL_IBAT_MAX_CLR));
 	if (ret)
 		pr_err("Error in clearing ibat max reg. err:%d", ret);
 
@@ -336,8 +485,12 @@ static int bcl_read_ibat(void *data, int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_IBAT_MAX, val,
-			VAL_CP_REG_BUF_LEN);
+		if (is_legacy_bcl)
+			ret = bcl_read_multi_register(BCL_IBAT_MAX_LEGACY, val,
+				VAL_CP_REG_BUF_LEN);
+		else
+			ret = bcl_read_multi_register(BCL_IBAT_MAX, val,
+				VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
 			goto bcl_read_exit;
@@ -385,8 +538,12 @@ static int bcl_read_vbat(void *data, int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_VBAT_MIN, val,
-			VAL_CP_REG_BUF_LEN);
+		if (is_legacy_bcl)
+			ret = bcl_read_multi_register(BCL_VBAT_MIN_LEGACY, val,
+				VAL_CP_REG_BUF_LEN);
+		else
+			ret = bcl_read_multi_register(BCL_VBAT_MIN, val,
+				VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
 			goto bcl_read_exit;
@@ -454,7 +611,8 @@ static irqreturn_t bcl_handle_vbat(int irq, void *data)
 
 static int bcl_get_devicetree_data(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, temp_val = 0;
+	char *key = NULL;
 	const __be32 *prop = NULL;
 	struct device_node *dev_node = pdev->dev.of_node;
 
@@ -467,16 +625,135 @@ static int bcl_get_devicetree_data(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	prop = of_get_address(dev_node, 1, NULL, NULL);
-	if (prop) {
-		bcl_perph->fg_lmh_addr = be32_to_cpu(*prop);
-		pr_debug("fg_lmh@%04x\n", bcl_perph->fg_lmh_addr);
+	if (is_legacy_bcl) {
+		prop = of_get_address(dev_node, 1, NULL, NULL);
+		if (prop) {
+			bcl_perph->pon_spare_addr = be32_to_cpu(*prop);
+			pr_debug("pon_spare@%04x\n", bcl_perph->pon_spare_addr);
+		}
+
+		/* Get VADC and IADC scaling factor */
+		key = "qcom,vbat-scaling-factor";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_LOW_VBAT].scaling_factor);
+		key = "qcom,vbat-gain-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_LOW_VBAT].gain_factor_num);
+		key = "qcom,vbat-gain-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_LOW_VBAT].gain_factor_den);
+		key = "qcom,ibat-scaling-factor";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].scaling_factor);
+		key = "qcom,ibat-offset-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].offset_factor_num);
+		key = "qcom,ibat-offset-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].offset_factor_den);
+		key = "qcom,ibat-gain-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].gain_factor_num);
+		key = "qcom,ibat-gain-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].gain_factor_den);
+		key = "qcom,inhibit-derating-ua";
+		READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_HIGH_IBAT].
+			inhibit_derating_ua);
 	} else {
-		dev_err(&pdev->dev, "No fg_lmh registers found\n");
-		return -ENODEV;
+		prop = of_get_address(dev_node, 1, NULL, NULL);
+		if (prop) {
+			bcl_perph->fg_lmh_addr = be32_to_cpu(*prop);
+			pr_debug("fg_lmh@%04x\n", bcl_perph->fg_lmh_addr);
+		} else {
+			dev_err(&pdev->dev, "No fg_lmh registers found\n");
+			return -ENODEV;
+		}
 	}
 
 	return ret;
+}
+
+static int bcl_calibrate(void)
+{
+	int ret = 0;
+	int8_t i_src = 0, val = 0;
+
+	ret = bcl_read_multi_register(BCL_I_SENSE_SRC, &i_src, 1);
+	if (ret) {
+		pr_err("Error reading current sense reg. err:%d\n", ret);
+		goto bcl_cal_exit;
+	}
+
+	ret = bcl_read_multi_register((i_src & 0x01) ?
+		BCL_I_GAIN_RSENSE : BCL_I_GAIN_BATFET, &val, 1);
+	if (ret) {
+		pr_err("Error reading %s current gain. err:%d\n",
+			(i_src & 0x01) ? "rsense" : "batfet", ret);
+		goto bcl_cal_exit;
+	}
+	bcl_perph->param[BCL_HIGH_IBAT].gain = val;
+	ret = bcl_read_multi_register((i_src & 0x01) ?
+		BCL_I_OFFSET_RSENSE : BCL_I_OFFSET_BATFET, &val, 1);
+	if (ret) {
+		pr_err("Error reading %s current offset. err:%d\n",
+			(i_src & 0x01) ? "rsense" : "batfet", ret);
+		goto bcl_cal_exit;
+	}
+	bcl_perph->param[BCL_HIGH_IBAT].offset = val;
+	ret = bcl_read_multi_register(BCL_V_GAIN_BAT, &val, 1);
+	if (ret) {
+		pr_err("Error reading vbat offset. err:%d\n", ret);
+		goto bcl_cal_exit;
+	}
+	bcl_perph->param[BCL_LOW_VBAT].gain = val;
+
+	if (((i_src & 0x01) != bcl_perph->i_src)
+		&& (bcl_perph->param[BCL_LOW_VBAT].irq_enabled &&
+			bcl_perph->param[BCL_HIGH_IBAT].irq_enabled)) {
+		bcl_set_vbat(&bcl_perph->param[BCL_LOW_VBAT],
+				bcl_perph->param[BCL_LOW_VBAT].trip_val, 0);
+		bcl_set_ibat(&bcl_perph->param[BCL_HIGH_IBAT], 0,
+				bcl_perph->param[BCL_HIGH_IBAT].trip_val);
+		bcl_perph->i_src = i_src;
+	}
+
+bcl_cal_exit:
+	return ret;
+}
+
+static void power_supply_callback(struct power_supply *psy)
+{
+	static struct power_supply *bms_psy;
+	int ret = 0;
+
+	if (calibration_done)
+		return;
+
+	if (!bms_psy)
+		bms_psy = power_supply_get_by_name("bms");
+	if (bms_psy) {
+		calibration_done = true;
+		pr_debug("Recalibrate callback");
+		ret = bcl_calibrate();
+		if (ret)
+			pr_err("Could not read calibration values. err:%d",
+				ret);
+	}
+}
+
+static int bcl_psy_get_property(struct power_supply *psy,
+				enum power_supply_property prop,
+				union power_supply_propval *val)
+{
+	return 0;
+}
+static int bcl_psy_set_property(struct power_supply *psy,
+				enum power_supply_property prop,
+				const union power_supply_propval *val)
+{
+	return -EINVAL;
 }
 
 static int bcl_set_soc(void *data, int low, int high)
@@ -622,7 +899,7 @@ static void bcl_probe_soc(struct platform_device *pdev)
 	soc_data->tz_dev = thermal_zone_of_sensor_register(&pdev->dev,
 				BCL_SOC_MONITOR, soc_data, &soc_data->ops);
 	if (IS_ERR(soc_data->tz_dev)) {
-		pr_err("vbat register failed. err:%ld\n",
+		pr_err("soc register failed. err:%ld\n",
 				PTR_ERR(soc_data->tz_dev));
 		return;
 	}
@@ -662,8 +939,10 @@ static void bcl_vbat_init(struct platform_device *pdev,
 static void bcl_probe_vbat(struct platform_device *pdev)
 {
 	bcl_vbat_init(pdev, &bcl_perph->param[BCL_LOW_VBAT], BCL_LOW_VBAT);
-	bcl_vbat_init(pdev, &bcl_perph->param[BCL_VLOW_VBAT], BCL_VLOW_VBAT);
-	bcl_vbat_init(pdev, &bcl_perph->param[BCL_CLOW_VBAT], BCL_CLOW_VBAT);
+	if (!is_legacy_bcl) {
+		bcl_vbat_init(pdev, &bcl_perph->param[BCL_VLOW_VBAT], BCL_VLOW_VBAT);
+		bcl_vbat_init(pdev, &bcl_perph->param[BCL_CLOW_VBAT], BCL_CLOW_VBAT);
+	}
 }
 
 static void bcl_ibat_init(struct platform_device *pdev,
@@ -689,7 +968,8 @@ static void bcl_ibat_init(struct platform_device *pdev,
 static void bcl_probe_ibat(struct platform_device *pdev)
 {
 	bcl_ibat_init(pdev, &bcl_perph->param[BCL_HIGH_IBAT], BCL_HIGH_IBAT);
-	bcl_ibat_init(pdev, &bcl_perph->param[BCL_VHIGH_IBAT], BCL_VHIGH_IBAT);
+	if (!is_legacy_bcl)
+		bcl_ibat_init(pdev, &bcl_perph->param[BCL_VHIGH_IBAT], BCL_VHIGH_IBAT);
 }
 
 static void bcl_configure_lmh_peripheral(void)
@@ -724,6 +1004,7 @@ static int bcl_remove(struct platform_device *pdev)
 static int bcl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct power_supply_config bcl_psy_cfg = {};
 
 	bcl_perph = devm_kzalloc(&pdev->dev, sizeof(*bcl_perph), GFP_KERNEL);
 	if (!bcl_perph)
@@ -735,8 +1016,40 @@ static int bcl_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	is_legacy_bcl = false;
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-bcl"))
+		is_legacy_bcl = true;
+
 	bcl_get_devicetree_data(pdev);
-	bcl_configure_lmh_peripheral();
+
+	if (is_legacy_bcl) {
+		ret = bcl_calibrate();
+		if (ret) {
+			pr_debug("Could not read calibration values. err:%d",
+				ret);
+			goto bcl_probe_exit;
+		}
+		bcl_psy_d.name = bcl_psy_name;
+		bcl_psy_d.type = POWER_SUPPLY_TYPE_BMS;
+		bcl_psy_d.get_property = bcl_psy_get_property;
+		bcl_psy_d.set_property = bcl_psy_set_property;
+		bcl_psy_d.num_properties = 0;
+		bcl_psy_d.external_power_changed = power_supply_callback;
+
+		bcl_psy_cfg.num_supplicants = 0;
+		bcl_psy_cfg.drv_data = bcl_perph;
+
+		bcl_psy = devm_power_supply_register(&pdev->dev, &bcl_psy_d,
+				&bcl_psy_cfg);
+		if (IS_ERR(bcl_psy)) {
+			pr_err("Unable to register bcl_psy rc = %ld\n",
+			PTR_ERR(bcl_psy));
+			return ret;
+		}
+	} else {
+		bcl_configure_lmh_peripheral();
+	}
+
 	bcl_probe_ibat(pdev);
 	bcl_probe_vbat(pdev);
 	bcl_probe_soc(pdev);
@@ -756,6 +1069,9 @@ bcl_probe_exit:
 }
 
 static const struct of_device_id bcl_match[] = {
+	{	
+		.compatible = "qcom,msm-bcl",
+	},
 	{
 		.compatible = "qcom,msm-bcl-lmh",
 	},
