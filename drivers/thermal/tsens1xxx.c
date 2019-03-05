@@ -522,6 +522,25 @@ static int tsens1xxx_register_interrupts(struct tsens_device *tmdev)
 	return 0;
 }
 
+static const struct tsens_ops ops_tsens1xxx_8976 = {
+	.hw_init		= tsens1xxx_hw_init,
+	.get_temp		= tsens1xxx_get_temp,
+	.set_trips		= tsens1xxx_set_trip_temp,
+	.interrupts_reg	= tsens1xxx_register_interrupts,
+	.sensor_en		= tsens1xxx_hw_sensor_en,
+	.calibrate		= calibrate_8976,
+	.dbg			= tsens2xxx_dbg,
+};
+
+const struct tsens_data data_tsens14xx_8976 = {
+	.num_sensors = TSENS_NUM_SENSORS_8976,
+	.ops = &ops_tsens1xxx_8976,
+	.valid_status_check = true,
+	.mtc = true,
+	.ver_major = 1,
+	.ver_minor = 4,
+};
+
 static const struct tsens_ops ops_tsens1xxx = {
 	.hw_init		= tsens1xxx_hw_init,
 	.get_temp		= tsens1xxx_get_temp,
