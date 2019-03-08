@@ -34,9 +34,19 @@
 		qcom,sw-power-collapse;
 		qcom,reset-clock-control;
 		qcom,regulator-scaling;
-		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
-		qcom,dcvs-min-load = <734400>; /* 1920 x 1088 @ 90fps */
-		qcom,dcvs-min-mbperframe = <32400>; /* 3840 x 2160 */
+		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
+		qcom,dcvs-tbl =
+			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
+			<816000 816000 979200 0x3f00000c>,
+
+			/* Enc 3840x1920@30 H.264/HEVC Turbo to Nom+ */
+			<855000 821100 979200 0x4000004>,
+
+			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
+			<816000 720000 835584 0x4000004>;
+		qcom,dcvs-limit =
+			<28800 24>, /* Encoder 3840x1920 */
+			<32400 24>; /* Decoder UHD */
 
 		qcom,load-freq-tbl =
 			<979200 466000000 0x55555555>, /* TURBO, UHD30E   */
