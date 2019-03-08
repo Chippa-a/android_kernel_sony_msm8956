@@ -117,9 +117,9 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,msm-mbhc-hphl-swh = <1>;
-		qcom,max-aux-codec = <1>;
-		qcom,aux-codec = "wsa881x.20170211";
-		qcom,aux-codec-prefix = "SpkrLeft";
+		qcom,wsa-max-devs = <1>;
+		qcom,wsa-devs = <&wsa881x_211>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft";
 	};
 };
 

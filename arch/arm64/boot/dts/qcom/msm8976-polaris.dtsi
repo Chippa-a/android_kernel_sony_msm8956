@@ -195,9 +195,9 @@
 
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
-		qcom,max-aux-codec = <2>;
-		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212";
-		qcom,aux-codec-prefix = "SpkrRight", "SpkrLeft";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft";
 		/delete-node/ qcom,msm-gpios;
 		/delete-node/ qcom,pinctrl-names;
 		/delete-node/ pinctrl-names;
