@@ -93,91 +93,91 @@
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
-				qcom,vidc-partition-buffer-types = <0x7ff>,
-							<0x800>;
+				qcom,vidc-buffer-types = <0xfff>;
 			};
 
 			qcom,domain-sec-bs {
 				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
-				qcom,vidc-partition-buffer-types = <0x241>;
+				qcom,vidc-buffer-types = <0x241>;
 			};
 
 			qcom,domain-sec-px {
 				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
-				qcom,vidc-partition-buffer-types = <0x106>;
+				qcom,vidc-buffer-types = <0x106>;
 			};
 
 			qcom,domain-sec-np {
 				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
-				qcom,vidc-partition-buffer-types = <0x480>;
+				qcom,vidc-buffer-types = <0x480>;
 			};
 		};
 
-		qcom,msm-bus-clients {
-			qcom,msm-bus-client@0 {
-				qcom,msm-bus,name = "venc-ddr";
-				qcom,msm-bus,num-cases = <10>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 342000 0>,  /* 480p  30 fps */
-					<63 512 342000 0>,  /* 480p  60 fps */
-					<63 512 342000 0>,  /* 720p  30 fps */
-					<63 512 677000 0>,  /* 720p  60 fps */
-					<63 512 775000 0>,  /* 1080p 30 fps */
-					<63 512 1530000 0>, /* 1080p 60 fps */
-					<63 512 1562000 0>, /* UHD   24 fps */
-					<63 512 1669000 0>, /* 4K    24 fps */
-					<63 512 1964000 0>; /* UHD   30 fps */
-				qcom,bus-configs = <0x55555555>; /* all encoders */
-			};
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "venus-ddr-gov";
+			qcom,bus-range-kbps = <1000 2688000>;
+		};
 
-			qcom,msm-bus-client@1 {
-				qcom,msm-bus,name = "vdec-ddr";
-				qcom,msm-bus,num-cases = <10>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 252000 0>,  /* 480p  30 fps */
-					<63 512 252000 0>,  /* 480p  60 fps */
-					<63 512 252000 0>,  /* 720p  30 fps */
-					<63 512 496000 0>,  /* 720p  60 fps */
-					<63 512 574000 0>,  /* 1080p 30 fps */
-					<63 512 1148000 0>, /* 1080p 60 fps */
-					<63 512 1967000 0>, /* UHD   24 fps */
-					<63 512 2458000 0>, /* 4K    24 fps */
-					<63 512 2458000 0>; /* UHD   30 fps */
-				qcom,bus-configs = <0xffffffff>; /* all decoders */
-			};
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+	};
 
-			qcom,msm-bus-client@2 {
-				qcom,msm-bus,name = "venc-ddr-lowlatency";
-				qcom,msm-bus,num-cases = <10>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 450000 0>,  /* 480p  30 fps */
-					<63 512 450000 0>,  /* 480p  60 fps */
-					<63 512 508000 0>,  /* 720p  30 fps */
-					<63 512 1010000 0>, /* 720p  60 fps */
-					<63 512 1149000 0>, /* 1080p 30 fps */
-					<63 512 2276000 0>, /* 1080p 60 fps */
-					<63 512 2159000 0>, /* UHD   24 fps */
-					<63 512 2306000 0>, /* 4K    24 fps */
-					<63 512 2688000 0>; /* UHD   30 fps */
-				qcom,bus-configs = <0x55555555>; /* all encs */
-				qcom,bus-low-latency;
+	venus-ddr-gov {
+		compatible = "qcom,msm-vidc,governor,table";
+		name = "venus-ddr-gov";
+		status = "ok";
+		qcom,bus-freq-table {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,load-busfreq-tbl =
+					<979200 1964000>,  /* UHD30E     */
+					<864000 1562000>,  /* 720p240LPE */
+					<489600 1530000>,  /* 1080p60E   */
+					<432000 962000>,   /* 720p120E   */
+					<244800 775000>,   /* 1080p30E   */
+					<216000 677000>,   /* 720p60E    */
+					<108000 342000>,   /* 720p30E    */
+					<72000  342000>,   /* VGA60E     */
+					<36000  342000>,   /* VGA30E     */
+					<0 0>;
 			};
-
-			qcom,msm-bus-client@3 {
-				qcom,msm-bus,name = "venus-arm9-ddr";
-				qcom,msm-bus,num-cases = <2>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 1000 1000>;
-				qcom,bus-configs = <0x00000000>;
-				qcom,bus-passive;
+			qcom,profile-dec {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,load-busfreq-tbl =
+					<979200 2458000>,  /* UHD30D     */
+					<864000 1967000>,  /* 720p240D   */
+					<489600 1148000>,  /* 1080p60D   */
+					<432000 976000>,   /* 720p120D   */
+					<244800 574000>,   /* 1080p30D   */
+					<216000 496000>,   /* 720p60D    */
+					<108000 252000>,   /* 720p30D    */
+					<72000  252000>,   /* VGA60D     */
+					<36000  252000>,   /* VGA30D     */
+					<0 0>;
+			};
+			qcom,profile-low-latency-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,low-latency-mode;
+				qcom,load-busfreq-tbl =
+					<979200 2688000>,  /* UHD30E     */
+					<864000 2159000>,  /* 720p240LPE */
+					<489600 2276000>,  /* 1080p60E   */
+					<432000 1295000>,  /* 720p120E   */
+					<244800 1149000>,  /* 1080p30E   */
+					<216000 1010000>,  /* 720p60E    */
+					<108000 508000>,   /* 720p30E    */
+					<72000  450000>,   /* VGA60E     */
+					<36000  450000>,   /* VGA30E     */
+					<0 0>;
 			};
 		};
 	};
