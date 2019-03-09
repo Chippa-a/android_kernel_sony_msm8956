@@ -112,10 +112,29 @@
 	};
 };
 
-&tlmm_pinmux {
+&msm_gpio {
 	tlmm_gpio_key {
-		qcom,pins = <&gp 112>, <&gp 113>, <&gp 114>, <&gp 115>;
-		qcom,num-grp-pins = <4>;
+		gpio_key_active: gpio_key_active {
+			mux {
+				pins = "gpio112", "gpio113", "gpio114", "gpio115";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio112", "gpio113", "gpio114", "gpio115";
+			};
+		};
+
+		gpio_key_suspend: gpio_key_suspend {
+			mux {
+				pins = "gpio112", "gpio113", "gpio114", "gpio115";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio112", "gpio113", "gpio114", "gpio115";
+			};
+		};
 	};
 };
 
