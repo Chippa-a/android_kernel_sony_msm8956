@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/msm/pm.h>
+
 &soc {
 	qcom,spm@b1d2000 {
 		compatible = "qcom,spm-v2";
@@ -86,6 +88,7 @@
 				qcom,energy-overhead = <501447>;
 				qcom,time-overhead = <633>;
 				qcom,min-child-idx = <2>;
+				qcom,reset-level = <LPM_RESET_LVL_RET>;
 			};
 
 			qcom,pm-cluster-level@2{
@@ -99,6 +102,7 @@
 				qcom,min-child-idx = <3>;
 				qcom,notify-rpm;
 				qcom,is-reset;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
 			};
 
 			qcom,pm-cluster@0{
@@ -131,6 +135,7 @@
 					qcom,energy-overhead = <277180>;
 					qcom,time-overhead = <467>;
 					qcom,min-child-idx = <1>;
+					qcom,reset-level = <LPM_RESET_LVL_RET>;
 				};
 
 				qcom,pm-cluster-level@2{
@@ -142,6 +147,7 @@
 					qcom,energy-overhead = <335344>;
 					qcom,time-overhead = <541>;
 					qcom,min-child-idx = <1>;
+					qcom,reset-level = <LPM_RESET_LVL_GDHS>;
 				};
 
 				qcom,pm-cluster-level@3{
@@ -154,6 +160,7 @@
 					qcom,time-overhead = <779>;
 					qcom,min-child-idx = <1>;
 					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu {
@@ -182,6 +189,8 @@
 						qcom,time-overhead = <330>;
 						qcom,use-broadcast-timer;
 						qcom,is-reset;
+						qcom,reset-level =
+							<LPM_RESET_LVL_PC>;
 					};
 				};
 			};
@@ -216,6 +225,8 @@
 					qcom,energy-overhead = <277821>;
 					qcom,time-overhead = <425>;
 					qcom,min-child-idx = <1>;
+					qcom,reset-level =
+						<LPM_RESET_LVL_RET>;
 				};
 
 				qcom,pm-cluster-level@2{
@@ -227,6 +238,8 @@
 					qcom,energy-overhead = <348515>;
 					qcom,time-overhead = <505>;
 					qcom,min-child-idx = <2>;
+					qcom,reset-level =
+						<LPM_RESET_LVL_GDHS>;
 				};
 
 				qcom,pm-cluster-level@3{
@@ -239,6 +252,8 @@
 					qcom,time-overhead = <1256>;
 					qcom,min-child-idx = <2>;
 					qcom,is-reset;
+					qcom,reset-level =
+						<LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu {
@@ -266,6 +281,8 @@
 						qcom,energy-overhead = <150122>;
 						qcom,time-overhead = <239>;
 						qcom,use-broadcast-timer;
+						qcom,reset-level =
+							<LPM_RESET_LVL_RET>;
 					};
 
 					qcom,pm-cpu-level@2 {
@@ -278,6 +295,8 @@
 						qcom,time-overhead = <302>;
 						qcom,use-broadcast-timer;
 						qcom,is-reset;
+						qcom,reset-level =
+							<LPM_RESET_LVL_PC>;
 					};
 				};
 			};
