@@ -1995,7 +1995,7 @@
 		reg-names = "dcc-base", "dcc-ram-base";
 
 		clocks = <&clock_gcc clk_gcc_dcc_clk>;
-		clock-names = "dcc_clk";
+		clock-names = "apb_pclk";
 
 		qcom,save-reg;
 	};

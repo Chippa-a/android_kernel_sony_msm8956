@@ -121,17 +121,28 @@
 		qcom,gpu-quirk-dp2clockgating-disable;
 		qcom,gpu-quirk-lmloadkill-disable;
 
-		/* Trace bus */
-		coresight-id = <67>;
-		coresight-name = "coresight-gfx";
-		coresight-nr-inports = <0>;
-		coresight-outports = <0>;
-		coresight-child-list = <&funnel_in0>;
-		coresight-child-ports = <4>;
-
 		qcom,gpu-speed-bin-vectors =
 			<0x4160 0x00000001 20>,
 			<0x0120 0x00000001 31>;
+
+		qcom,gpu-coresights {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-coresight";
+
+			/* Trace bus */
+			qcom,gpu-coresight@0 {
+				reg = <0>;
+				coresight-name = "coresight-gfx";
+				coresight-atid = <67>;
+				port {
+					gfx_out_funnel_in0: endpoint {
+						remote-endpoint =
+						<&funnel_in0_in_gfx>;
+					};
+				};
+			};
+		};
 
 		/* Power levels */
 		qcom,gpu-pwrlevel-bins {
