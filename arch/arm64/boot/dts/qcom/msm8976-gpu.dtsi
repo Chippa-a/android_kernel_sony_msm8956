@@ -110,7 +110,7 @@
 		vdd-supply = <&gdsc_oxili_gx>;
 
 		/* IOMMU Data */
-                iommu = <&gfx_iommu>;
+		iommu = <&gfx_iommu>;
 
 		/* Trace bus */
 		coresight-id = <67>;
@@ -282,6 +282,40 @@
 					qcom,bus-max = <0>;
 				};
 			};
+		};
+	};
+
+	kgsl_msm_iommu: qcom,kgsl-iommu@0x1f00000 {
+		compatible = "qcom,kgsl-smmu-v2";
+
+		reg = <0x1f00000 0x10000>;
+		qcom,protect = <0x40000 0x20000>;
+		qcom,micro-mmu-control = <0x6000>;
+
+		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
+			<&clock_gcc_gfx clk_gcc_gfx_tcu_clk>,
+			<&clock_gcc_gfx clk_gcc_gtcu_ahb_clk>,
+			<&clock_gcc_gfx clk_gcc_gfx_tbu_clk>,
+			<&clock_gcc_gfx clk_gcc_gfx_1_tbu_clk>,
+			<&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc_gfx clk_gcc_bimc_gfx_clk>;
+
+		clock-names = "scfg_clk", "gtcu_clk", "gtcu_iface_clk",
+				"gtbu_clk", "gtbu1_clk", "gpu_ahb_clk",
+				"gcc_bimc_gfx_clk";
+
+		qcom,secure_align_mask = <0xfff>;
+		qcom,retention;
+
+		gfx3d_user: gfx3d_user {
+			compatible = "qcom,smmu-kgsl-cb";
+			label = "gfx3d_user";
+			qcom,gpu-offset = <0x48000>;
+		};
+		gfx3d_secure: gfx3d_secure {
+			compatible = "qcom,smmu-kgsl-cb";
+			label = "gfx3d_secure";
+			memory-region = <&secure_mem>;
 		};
 	};
 };
