@@ -196,7 +196,7 @@
 	bias-disable;
 };
 
-&pmi8950_haptic {
+&pmi_haptic {
 	qcom,vmax-mv = <3300>;
 };
 
