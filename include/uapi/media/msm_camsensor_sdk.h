@@ -40,7 +40,11 @@
 #define MAX_ACTUATOR_SCENARIO     8
 #define MAX_ACT_MOD_NAME_SIZE     32
 #define MAX_ACT_NAME_SIZE         32
+#if defined(CONFIG_SONY_CAM_V4L2)
+#define MAX_ACTUATOR_INIT_SET     2000
+#else
 #define MAX_ACTUATOR_INIT_SET     120
+#endif
 #define MAX_I2C_REG_SET           12
 
 #define MAX_LED_TRIGGERS          3
@@ -182,6 +186,9 @@ enum actuator_type {
 	ACTUATOR_PIEZO,
 	ACTUATOR_HVCM,
 	ACTUATOR_BIVCM,
+#if defined(CONFIG_SONY_CAM_V4L2)
+	ACTUATOR_VCM2,
+#endif
 };
 
 enum msm_flash_driver_type {

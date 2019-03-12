@@ -1705,6 +1705,9 @@ enum actuator_type {
 	ACTUATOR_PIEZO,
 	ACTUATOR_HVCM,
 	ACTUATOR_BIVCM,
+#if defined(CONFIG_SONY_CAM_V4L2)
+	ACTUATOR_VCM2,
+#endif
 };
 
 enum msm_actuator_data_type {
