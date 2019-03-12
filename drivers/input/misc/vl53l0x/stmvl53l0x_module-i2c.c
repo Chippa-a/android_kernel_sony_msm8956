@@ -68,11 +68,61 @@ static int stmvl53l0x_parse_vdd(struct device *dev, struct i2c_data *data)
 	if (dev->of_node) {
 		data->vana = regulator_get(dev, "vdd");
 		if (IS_ERR(data->vana)) {
-			err("vdd supply is not provided\n");
-			ret = -1;
+			err("Cannot get vdd supply: %ld\n",
+						PTR_ERR(data->vana));
+			return PTR_ERR(data->vana);
+		}
+
+		/* Not mandatory */
+		data->avdd = regulator_get(dev, "tof_avdd");
+		if (IS_ERR(data->avdd)) {
+			err("tof_avdd supply not provided\n");
+			ret = 0;
 		}
 	}
 	dbg("End\n");
+
+	return ret;
+}
+
+static int stmvl53l0x_parse_pins(struct device *dev, struct i2c_data *data)
+{
+	int ret = 0;
+
+	if (dev->of_node) {
+		data->rst_gpio = of_get_named_gpio(dev->of_node,
+						"tof-reset-gpio", 0);
+	}
+
+	data->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(data->pinctrl)) {
+		dev_err(dev, "Failed to get pinctrl handle.\n");
+		return -EPROBE_DEFER;
+	}
+
+	data->pinstate_act = pinctrl_lookup_state(data->pinctrl,
+						"tof_irq_active");
+	if (IS_ERR(data->pinstate_act)) {
+		dev_err(dev, "Cannot lookup active state\n");
+		ret = -EPROBE_DEFER;
+		goto err_pinact;
+	}
+
+	data->pinstate_slp = pinctrl_lookup_state(data->pinctrl,
+						"tof_irq_suspend");
+	if (IS_ERR(data->pinstate_act)) {
+		dev_err(dev, "Cannot lookup sleep state\n");
+		ret = -EPROBE_DEFER;
+		goto err_pinslp;
+	}
+
+	data->pinctrl_avail = true;
+
+	return ret;
+
+err_pinact:
+err_pinslp:
+	devm_pinctrl_put(data->pinctrl);
 
 	return ret;
 }
@@ -107,7 +157,14 @@ static int stmvl53l0x_probe(struct i2c_client *client,
 	vl53l0x_data->bus_type = I2C_BUS;
 
 	/* setup regulator */
-	stmvl53l0x_parse_vdd(&i2c_object->client->dev, i2c_object);
+	rc = stmvl53l0x_parse_vdd(&i2c_object->client->dev, i2c_object);
+	if (rc)
+		goto end;
+
+	/* setup pinctrl and gpios */
+	rc = stmvl53l0x_parse_pins(&i2c_object->client->dev, i2c_object);
+	if (rc)
+		goto end;
 
 	/* setup device name */
 	vl53l0x_data->dev_name = dev_name(&client->dev);
@@ -125,6 +182,12 @@ static int stmvl53l0x_probe(struct i2c_client *client,
 	i2c_object->power_up = 0;
 
 	dbg("End\n");
+end:
+	if (rc < 0) {
+		kfree(i2c_object);
+		kfree(vl53l0x_data);
+	}
+
 	return rc;
 }
 
@@ -176,19 +239,42 @@ int stmvl53l0x_power_up_i2c(void *i2c_object, unsigned int *preset_flag)
 
 	/* actual power on */
 #ifndef STM_TEST
+#ifndef CONFIG_STMVL53L0X_SOMC_PARAMS
 	ret = regulator_set_voltage(data->vana,
 		VL_VDD_MIN, VL_VDD_MAX);
 	if (ret < 0) {
 		err("set_vol(%p) fail %d\n", data->vana, ret);
 		return ret;
 	}
+#endif /* CONFIG_STMVL53L0X_SOMC_PARAMS */
 	ret = regulator_enable(data->vana);
 	usleep_range(3000, 3001);
 	if (ret < 0) {
 		err("reg enable(%p) failed.rc=%d\n",
 			data->vana, ret);
+#ifndef CONFIG_STMVL53L0X_SOMC_PARAMS
 		return ret;
+#endif
 	}
+
+	if (!IS_ERR_OR_NULL(data->avdd)) {
+		ret = regulator_enable(data->avdd);
+		if (ret < 0) {
+			err("Cannot enable AVDD VREG: %d\n", ret);
+			return ret;
+		}
+		usleep_range(2950, 3000);
+	}
+
+	if (data->pinctrl_avail)
+		pinctrl_select_state(data->pinctrl, data->pinstate_act);
+
+	/* Deassert RST if GPIO is available */
+	if (gpio_is_valid(data->rst_gpio)) {
+		gpio_set_value(data->rst_gpio, 1);
+		usleep_range(1000, 1500);
+	}
+
 	data->power_up = 1;
 	*preset_flag = 1;
 #endif
@@ -211,6 +297,19 @@ int stmvl53l0x_power_down_i2c(void *i2c_object)
 	if (ret < 0)
 		err("reg disable(%p) failed.rc=%d\n",
 			data->vana, ret);
+
+	/* Assert RST if GPIO is available */
+	if (gpio_is_valid(data->rst_gpio))
+		gpio_set_value(data->rst_gpio, 0);
+
+	if (data->pinctrl_avail)
+		pinctrl_select_state(data->pinctrl, data->pinstate_slp);
+
+	if (!IS_ERR_OR_NULL(data->avdd)) {
+		ret = regulator_disable(data->avdd);
+		if (ret < 0)
+			err("Cannot disable AVDD VREG: %d\n", ret);
+	}
 
 	data->power_up = 0;
 #endif

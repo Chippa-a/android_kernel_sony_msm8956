@@ -3,8 +3,11 @@
 #
 
 # Each configuration option enables a list of files.
+ifeq ($(CONFIG_SENSORS_STMVL53L0_USE_CCI), y)
+FEATURE_USE_CCI := true
+else
 FEATURE_USE_CCI := false
-#FEATURE_USE_CCI := true
+endif
 
 ifeq ($(FEATURE_USE_CCI), true)
 ccflags-y	+= -Idrivers/input/misc/vl53l0x/inc -DCAMERA_CCI

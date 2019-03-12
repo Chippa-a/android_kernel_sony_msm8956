@@ -1110,6 +1110,10 @@ int8_t VL_set_measurement_timing_budget_micro_seconds(
 	uint32_t cMinTimingBudgetMicroSeconds	= 20000;
 	uint32_t SubTimeout = 0;
 
+#ifdef CONFIG_STMVL53L0X_SOMC_PARAMS
+	cMinTimingBudgetMicroSeconds = 26000;
+#endif
+
 	LOG_FUNCTION_START("");
 
 	if (MeasurementTimingBudgetMicroSeconds

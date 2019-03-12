@@ -419,6 +419,22 @@ config STMVL53L0X
 	  To compile this driver as a module, choose M here: the module will
 	  be called vl5310x.
 
+config STMVL53L0X_SOMC_PARAMS
+	bool "STM VL53L0X extensions and parameters from SoMC"
+	depends on STMVL53L0X
+	default y
+	help
+	  Say Y here if you want to enable extensional code and
+	  parameters from SoMC for the STM VL53L0X.
+
+config SENSORS_STMVL53L0X_USE_CCI
+	tristate "STM VL53L0X on MSM Camera CCI"
+	depends on STMVL53L0X
+	help
+	  Say Y here to enable the camera cci use in the vl53L0 driver.
+
+	  If unsure, say N.
+
 config INPUT_KEYSPAN_REMOTE
 	tristate "Keyspan DMR USB remote control"
 	depends on USB_ARCH_HAS_HCD
