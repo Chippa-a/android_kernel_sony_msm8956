@@ -803,6 +803,9 @@ static struct rcg_clk jpeg0_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mclk_clk_src[] = {
+#if defined(CONFIG_SONY_CAM_V4L2)
+	F(  8000000,           gpll0,    1,    1,   100),
+#endif
 	F(  24000000,      gpll6_out,    1,    1,    45),
 	F(  66670000,          gpll0,   12,    0,     0),
 	F_END
