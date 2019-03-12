@@ -38,7 +38,7 @@
 #include "vl53l0_api.h"
 #include "vl53l010_api.h"
 
-#define USE_INT
+//#define USE_INT
 /* #define DEBUG_TIME_LOG */
 #ifdef DEBUG_TIME_LOG
 struct timeval start_tv, stop_tv;
@@ -57,12 +57,14 @@ static struct stmvl53l0_module_fn_t stmvl53l0_module_func_tbl = {
 	.query_power_status = stmvl53l0_cci_power_status,
 };
 #else
+extern int stmvl53l0_i2c_power_status(void *i2c_object);
+
 static struct stmvl53l0_module_fn_t stmvl53l0_module_func_tbl = {
 	.init = stmvl53l0_init_i2c,
 	.deinit = stmvl53l0_exit_i2c,
 	.power_up = stmvl53l0_power_up_i2c,
 	.power_down = stmvl53l0_power_down_i2c,
-	.stmv53l0_cci_power_status = NULL;
+	.query_power_status = stmvl53l0_i2c_power_status,
 };
 #endif
 struct stmvl53l0_module_fn_t *pmodule_func_tbl;
@@ -415,7 +417,7 @@ struct stmvl53l0_api_fn_t *papi_func_tbl;
 
 #define HIGH_ACCURACY_TIMING_BUDGET				200000
 #define HIGH_ACCURACY_SIGNAL_RATE_LIMIT	 (25 * 65536 / 100) /*0.25*/
-#define HIGH_ACCURACY_SIGMA_LIMIT				(18*65536)
+#define HIGH_ACCURACY_SIGMA_LIMIT				(35*65536)
 #define HIGH_ACCURACY_PRE_RANGE_PULSE_PERIOD	14
 #define HIGH_ACCURACY_FINAL_RANGE_PULSE_PERIOD	10
 
@@ -428,7 +430,15 @@ struct stmvl53l0_api_fn_t *papi_func_tbl;
 #define HIGH_SPEED_FINAL_RANGE_PULSE_PERIOD		10
 
 
+#ifdef CONFIG_INPUT_STMVL53L0_SOMC_PARAMS
+#define CALIBRATION_FILE 1
+#endif
 
+#ifdef CALIBRATION_FILE
+FixPoint1616_t offset_calib;
+FixPoint1616_t xtalk_calib;
+uint32_t spads_calib = 0;
+#endif
 
 
 static long stmvl53l0_ioctl(struct file *file,
@@ -440,6 +450,80 @@ static int stmvl53l0_start(struct stmvl53l0_data *data, uint8_t scaling,
 			init_mode_e mode);
 static int stmvl53l0_stop(struct stmvl53l0_data *data);
 static int stmvl53l0_config_use_case(struct stmvl53l0_data *data);
+
+#ifdef CALIBRATION_FILE
+#define UINT_MAX_LEN	11
+static void stmvl53l0_read_calibration_file(struct stmvl53l0_data *data)
+{
+	VL53L0_DEV vl53l0_dev = data;
+
+	if (offset_calib < 1000)
+		offset_calib = 7000;
+
+	if (data->enableDebug)
+		pr_err("VL53L0: offset_calib: %u\n", offset_calib);
+
+	papi_func_tbl->SetOffsetCalibrationDataMicroMeter(
+			vl53l0_dev, offset_calib);
+
+	data->OffsetMicroMeter = offset_calib;
+
+	if (spads_calib > 1) {
+		if (data->enableDebug)
+			pr_err("VL53L0: refSpadCount: %u\n",
+					data->refSpadCount);
+
+		papi_func_tbl->SetReferenceSpads(vl53l0_dev, spads_calib, 0);
+		data->refSpadCount = spads_calib;
+		data->isApertureSpads = 0;
+	}
+
+	xtalk_calib = 0;
+	papi_func_tbl->SetXTalkCompensationRateMegaCps(
+			vl53l0_dev, (FixPoint1616_t)xtalk_calib);
+	papi_func_tbl->SetXTalkCompensationEnable(vl53l0_dev, true);
+
+	return;
+}
+
+static void stmvl53l0_write_offset_calibration_file(struct stmvl53l0_data *data)
+{
+	struct file *f;
+	char buf[UINT_MAX_LEN] = {0};
+	mm_segment_t fs;
+
+	f = filp_open("/data/calibration/offset", O_WRONLY|O_CREAT, 0644);
+	if (f != NULL) {
+		fs = get_fs();
+		set_fs(get_ds());
+		snprintf(buf, UINT_MAX_LEN, "%u", offset_calib);
+		vl53l0_dbgmsg("write offset as:%s, buf[0]:%c\n", buf, buf[0]);
+		f->f_op->write(f, buf, UINT_MAX_LEN, &f->f_pos);
+		set_fs(fs);
+	}
+	filp_close(f, NULL);
+	kobject_uevent(&data->input_dev_ps->dev.kobj, KOBJ_CHANGE);
+}
+
+static void stmvl53l0_write_xtalk_calibration_file(struct stmvl53l0_data *data)
+{
+	struct file *f;
+	char buf[UINT_MAX_LEN] = {0};
+	mm_segment_t fs;
+
+	f = filp_open("/data/calibration/xtalk", O_WRONLY|O_CREAT, 0644);
+	if (f != NULL) {
+		fs = get_fs();
+		set_fs(get_ds());
+		snprintf(buf, UINT_MAX_LEN, "%u", xtalk_calib);
+		vl53l0_dbgmsg("write xtalk as:%s, buf[0]:%c\n", buf, buf[0]);
+		f->f_op->write(f, buf, UINT_MAX_LEN, &f->f_pos);
+		set_fs(fs);
+	}
+	filp_close(f, NULL);
+	kobject_uevent(&data->input_dev_ps->dev.kobj, KOBJ_CHANGE);
+}
+#endif /* CALIBRATION_FILE */
 
 #ifdef DEBUG_TIME_LOG
 static void stmvl53l0_DebugTimeGet(struct timeval *ptv)
@@ -1266,6 +1350,136 @@ static DEVICE_ATTR(set_use_case, 0660/*S_IWUGO | S_IRUGO*/,
 				   stmvl53l0_show_use_case,
 					stmvl53l0_store_set_use_case);
 
+/* Reference SPADs */
+static ssize_t stmvl53l0_show_ref_spads(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct stmvl53l0_data *data = dev_get_drvdata(dev);
+	VL53L0_DEV vl53l0_dev = data;
+	int ret;
+	uint32_t spads_count;
+	uint8_t is_aperture;
+
+	ret = papi_func_tbl->GetReferenceSpads(vl53l0_dev,
+				(uint32_t *)&spads_count,
+				(uint8_t *)&is_aperture);
+
+	if (data->enableDebug)
+		vl53l0_dbgmsg("Get RefSpad : Count:%u, Type:%u\n",
+					spads_count, is_aperture);
+
+	return snprintf(buf, 10, "%d\n", spads_count);
+}
+
+static ssize_t stmvl53l0_store_ref_spads(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct stmvl53l0_data *data = dev_get_drvdata(dev);
+	VL53L0_DEV vl53l0_dev = data;
+	unsigned long spads_count = 0;
+	int ret = kstrtoul(buf, 10, &spads_count);
+
+	if (ret != 0)
+		return ret;
+
+	mutex_lock(&data->work_mutex);
+
+	if (data->enableDebug)
+		vl53l0_dbgmsg("Set RefSpad : Count:%lu, Type:0\n",
+				spads_count);
+
+	data->refSpadCount = spads_count;
+	data->isApertureSpads = 0;
+#ifdef CALIBRATION_FILE
+	spads_calib = (uint32_t)spads_count;
+#endif
+
+	/* If the sensor is powered up, set the SPADs right now */
+	if (data->enable_ps_sensor == 1) {
+		ret = papi_func_tbl->SetReferenceSpads(vl53l0_dev,
+						(uint32_t)spads_count, 0);
+		if (ret) {
+			mutex_unlock(&data->work_mutex);
+			pr_err("Cannot set reference SPADs\n");
+			count = -EINVAL;
+			return count;
+		}
+	}
+
+	mutex_unlock(&data->work_mutex);
+
+	return count;
+}
+
+static DEVICE_ATTR(set_ref_spads, 0660,
+			stmvl53l0_show_ref_spads,
+			stmvl53l0_store_ref_spads);
+
+/* Offset calibration data */
+static ssize_t stmvl53l0_show_offset_caldata(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct stmvl53l0_data *data = dev_get_drvdata(dev);
+	VL53L0_DEV vl53l0_dev = data;
+	int ret;
+	uint32_t offset_caldata;
+
+	ret = papi_func_tbl->GetOffsetCalibrationDataMicroMeter(
+				vl53l0_dev, (uint32_t *)&offset_caldata);
+
+	if (data->enableDebug)
+		vl53l0_dbgmsg("Get Offset Calibration: %u micrometers\n",
+							offset_caldata);
+
+	return snprintf(buf, 10, "%d\n", offset_caldata);
+}
+
+static ssize_t stmvl53l0_store_offset_caldata(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct stmvl53l0_data *data = dev_get_drvdata(dev);
+	VL53L0_DEV vl53l0_dev = data;
+	unsigned long offset_caldata = 0;
+	int ret = kstrtoul(buf, 10, &offset_caldata);
+
+	if (ret != 0)
+		return ret;
+
+	mutex_lock(&data->work_mutex);
+
+	if (data->enableDebug)
+		vl53l0_dbgmsg("Set Offset Calibration: %lu micrometers\n",
+							offset_caldata);
+
+	data->OffsetMicroMeter = offset_caldata;
+	data->setCalibratedValue |= SET_OFFSET_CALIB_DATA_MICROMETER_MASK;
+#ifdef CALIBRATION_FILE
+	offset_calib = offset_caldata;
+#endif
+
+	/* If the sensor is powered up, set the offset calibration right now */
+	if (data->enable_ps_sensor == 1) {
+		ret = papi_func_tbl->SetOffsetCalibrationDataMicroMeter(
+					vl53l0_dev, (uint32_t)offset_caldata);
+		if (ret) {
+			mutex_unlock(&data->work_mutex);
+			pr_err("Cannot set offset calibration\n");
+			count = -EINVAL;
+			return count;
+		}
+	}
+
+	mutex_unlock(&data->work_mutex);
+
+	return count;
+}
+
+static DEVICE_ATTR(set_um_offset, 0660,
+			stmvl53l0_show_offset_caldata,
+			stmvl53l0_store_offset_caldata);
+
 
 /* Get Current configuration info */
 static ssize_t stmvl53l0_show_current_configuration(struct device *dev,
@@ -1526,6 +1740,8 @@ static struct attribute *stmvl53l0_attributes[] = {
 	&dev_attr_set_delay_ms.attr,
 	&dev_attr_set_timing_budget.attr,
 	&dev_attr_set_use_case.attr,
+	&dev_attr_set_ref_spads.attr,
+	&dev_attr_set_um_offset.attr,
 	&dev_attr_do_flush.attr,
 	&dev_attr_show_current_configuration.attr,
 	NULL
@@ -1606,6 +1822,14 @@ static int stmvl53l0_ioctl_handler(struct file *file,
 		}
 		vl53l0_dbgmsg("SETXTALK as 0x%x\n", xtalkint);
 
+#ifdef CALIBRATION_FILE
+		xtalk_calib = xtalkint;
+		stmvl53l0_write_xtalk_calibration_file(data);
+
+		papi_func_tbl->SetXTalkCompensationRateMegaCps(
+			vl53l0_dev, (FixPoint1616_t)xtalk_calib);
+#endif
+
 		/* later
 		* SetXTalkCompensationRate(vl53l0_dev, xtalkint);
 		*/
@@ -1634,6 +1858,14 @@ static int stmvl53l0_ioctl_handler(struct file *file,
 			return -EFAULT;
 		}
 		vl53l0_dbgmsg("SETOFFSET as %d\n", offsetint);
+
+#ifdef CALIBRATION_FILE
+		offset_calib = offsetint;
+		stmvl53l0_write_offset_calibration_file(data);
+
+		papi_func_tbl->SetOffsetCalibrationDataMicroMeter(
+			vl53l0_dev, offset_calib);
+#endif
 
 		/* later
 		* SetOffsetCalibrationData(vl53l0_dev, offsetint);
@@ -1823,7 +2055,10 @@ static int stmvl53l0_ioctl_handler(struct file *file,
 				  data->OffsetMicroMeter = parameter.value;
 				  data->setCalibratedValue
 			       |= SET_OFFSET_CALIB_DATA_MICROMETER_MASK;
-
+#ifdef CALIBRATION_FILE
+				offset_calib = (FixPoint1616_t)parameter.value;
+				stmvl53l0_write_offset_calibration_file(data);
+#endif
 			}
 			vl53l0_dbgmsg("get parameter value as %d\n",
 				 parameter.value);
@@ -1905,6 +2140,10 @@ static int stmvl53l0_ioctl_handler(struct file *file,
 				data->setCalibratedValue |=
 					 SET_XTALK_COMP_RATE_MCPS_MASK;
 
+#ifdef CALIBRATION_FILE
+				xtalk_calib = (FixPoint1616_t)parameter.value;
+				stmvl53l0_write_xtalk_calibration_file(data);
+#endif
 
 				/*0.7 KCps converted to MCps */
 				if (data->XTalkCompensationRateMegaCps <
@@ -2493,6 +2732,10 @@ static int stmvl53l0_start(struct stmvl53l0_data *data, uint8_t scaling,
 		vl53l0_dev->setCalibratedValue |=
 		 SET_OFFSET_CALIB_DATA_MICROMETER_MASK;
 
+#ifdef CALIBRATION_FILE
+		offset_calib = OffsetMicroMeter;
+		stmvl53l0_write_offset_calibration_file(data);
+#endif
 		return rc;
 	} else if (mode == XTALKCALIB_MODE) {
 		FixPoint1616_t XTalkCompensationRateMegaCps;
@@ -2508,8 +2751,15 @@ static int stmvl53l0_start(struct stmvl53l0_data *data, uint8_t scaling,
 				 XTalkCompensationRateMegaCps;
 		vl53l0_dev->setCalibratedValue |=
 			 SET_XTALK_COMP_RATE_MCPS_MASK;
-
+#ifdef CALIBRATION_FILE
+		xtalk_calib = XTalkCompensationRateMegaCps;
+		stmvl53l0_write_xtalk_calibration_file(data);
+#endif
 		return rc;
+#ifdef CALIBRATION_FILE
+	} else {
+		stmvl53l0_read_calibration_file(data);
+#endif
 	}
 	/* set up device parameters */
 	data->gpio_polarity = VL53L0_INTERRUPTPOLARITY_LOW;
@@ -2758,6 +3008,13 @@ int stmvl53l0_setup(struct stmvl53l0_data *data)
 
 	input_set_abs_params(data->input_dev_ps, ABS_GAS, 0, 0xffffffff,
 		0, 0);
+
+	/* advertise coordinates
+	 * this makes android not mistake the input device for a stylus
+	 */
+	input_set_abs_params(data->input_dev_ps, ABS_X, 0, 0, 0, 0);
+	input_set_abs_params(data->input_dev_ps, ABS_Y, 0, 0, 0, 0);
+
 	data->input_dev_ps->name = "STM VL53L0 proximity sensor";
 
 	rc = input_register_device(data->input_dev_ps);

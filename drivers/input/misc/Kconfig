@@ -906,4 +906,11 @@ config SENSORS_STMVL53L0_USE_CCI
 
 	  If unsure, say N.
 
+config INPUT_STMVL53L0_SOMC_PARAMS
+	bool "STM VL53L0 extensions and parameters from SoMC"
+	depends on INPUT_STMVL53L0
+	help
+	  Say Y here if you want to enable extensional code and
+	  parameters from SoMC for the STM VL53L0.
+
 endif
