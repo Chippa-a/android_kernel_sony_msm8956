@@ -58,6 +58,7 @@ obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_PANEL)             += panel.o
 obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_LDO_VIBRATOR)  += ldo_vibrator.o
+obj-$(CONFIG_SENSORS_TCS3490_KUGO)	+= tcs3490.o
 obj-$(CONFIG_FPR_FPC) 	+= fpr_FingerprintCard/
 obj-$(CONFIG_MEMORY_STATE_TIME)	+= memory_state_time.o
 
