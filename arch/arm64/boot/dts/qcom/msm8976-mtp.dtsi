@@ -10,9 +10,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
+
 
 #include "msm8976-pinctrl.dtsi"
-#include "msm8976-camera-sensor-mtp.dtsi"
+/* #include "msm8976-camera-sensor-mtp.dtsi" */
 #include "msm8976-mdss-mtp.dtsi"
 #include "msm8976-wsa881x.dtsi"
 
@@ -134,6 +140,14 @@
 
 	sound-9335 {
 		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
+		qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
+	};
+
+	cdc_quin_mi2s_gpios: msm_cdc_pinctrl_quin {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_tlmm_lines_act>;
+		pinctrl-1 = <&pri_tlmm_lines_sus>;
 	};
 };
 
