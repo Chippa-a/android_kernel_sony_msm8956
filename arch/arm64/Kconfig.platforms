@@ -167,6 +167,33 @@ config ARCH_MSM8976
 	  This enables support for the MSM8976 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_SONY_LOIRE
+	bool "Sony Mobile Loire platform"
+	depends on ARCH_MSM8976
+	help
+	Support for the SONY Mobile Loire platform
+	which is based on QCOM MSM8976 chipset.
+	If you enable this config,
+	please use SONY Mobile device tree.
+
+config MACH_SONY_SUZU
+	bool "Sony Mobile Suzu"
+	depends on ARCH_SONY_LOIRE
+	help
+	Support for the SONY Mobile Suzu device
+	which is based on SONY Loire platform.
+	If you enable this config,
+	please use SONY Mobile device tree.
+
+config MACH_SONY_KUGO
+	bool "Sony Mobile Kugo"
+	depends on ARCH_SONY_LOIRE
+	help
+	Support for the SONY Mobile Kugo device
+	which is based on SONY Loire platform.
+	If you enable this config,
+	please use SONY Mobile device tree.
+
 config ARCH_MSM8953
 	bool "Enable Support for Qualcomm Technologies Inc. MSM8953"
 	depends on ARCH_QCOM

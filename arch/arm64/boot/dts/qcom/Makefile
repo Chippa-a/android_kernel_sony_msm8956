@@ -1,6 +1,8 @@
+ifneq ($(CONFIG_ARCH_SONY_LOIRE),y)
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8016-sbc.dtb msm8916-mtp.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8096-db820c.dtb
+endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDM845) += \
@@ -530,6 +532,7 @@ sda429-bg-dvt2-wtp-overlay.dtbo-base := sda429-bg-dvt2-wtp.dtb
 sdm429-bg-wdp-overlay.dtbo-base := sdm429-bg-wdp.dtb
 sda429-bg-wdp-overlay.dtbo-base := sda429-bg-wdp.dtb
 else
+ifneq ($(CONFIG_ARCH_SONY_LOIRE),y)
 dtb-$(CONFIG_ARCH_MSM8976) += msm8976-sim.dtb \
 	msm8976-rumi.dtb \
 	msm8976-qrd-skun.dtb \
@@ -562,6 +565,16 @@ dtb-$(CONFIG_ARCH_MSM8976) += msm8976-sim.dtb \
 	apq8076-v1.1-mtp.dtb \
 	apq8076-v1.1-cdp.dtb \
 	apq8076-v1.1-mtp-rome.dtb
+else
+dtb-$(CONFIG_MACH_SONY_SUZU) += msm8956-loire-suzu_generic.dtb \
+	msm8976-loire-suzu_generic.dtb \
+	msm8956-v1.1-loire-suzu_generic.dtb \
+	msm8976-v1.1-loire-suzu_generic.dtb
+dtb-$(CONFIG_MACH_SONY_KUGO) += msm8956-loire-kugo_generic.dtb \
+	msm8976-loire-kugo_generic.dtb \
+	msm8956-v1.1-loire-kugo_generic.dtb \
+	msm8976-v1.1-loire-kugo_generic.dtb
+endif
 
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	msm8953-mtp.dtb \

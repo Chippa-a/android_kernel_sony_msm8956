@@ -10,6 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2016 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include "msm-audio-lpass.dtsi"
 #include "msm8976-wsa881x.dtsi"
@@ -49,11 +54,13 @@
 		reg = <0xc051000 0x4>,
 		    <0xc051004 0x4>,
 		    <0xc055000 0x4>,
+		    <0xc056000 0x4>,
 		    <0xc052000 0x4>;
 
 		reg-names = "csr_gp_io_mux_mic_ctl",
 			"csr_gp_io_mux_spkr_ctl",
 			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
+			"csr_gp_io_lpaif_sec_pcm_sec_mode_muxsel",
 			"csr_gp_io_mux_quin_ctl";
 
 		qcom,audio-routing =
@@ -99,7 +106,7 @@
 				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
 				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
 				"msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s5>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
@@ -111,7 +118,8 @@
 				<&int_fm_rx>, <&int_fm_tx>, <&sb_6_rx>,
 				<&proxy_rx>, <&proxy_tx>;
 
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1",	"msm-dai-q6-hdmi.8",
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",	"msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-hdmi.8",
 				"msm-dai-q6-mi2s.2",
 				"msm-dai-q6-mi2s.3", "msm-dai-q6-mi2s.5",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
@@ -178,6 +186,10 @@
 };
 
 &dai_pri_auxpcm {
+	/delete-property/ qcom,msm-cpudai-afe-clk-ver;
+};
+
+&dai_sec_auxpcm {
 	/delete-property/ qcom,msm-cpudai-afe-clk-ver;
 };
 
