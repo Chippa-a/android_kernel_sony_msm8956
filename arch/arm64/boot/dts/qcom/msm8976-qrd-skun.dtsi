@@ -266,6 +266,7 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-pref-prim-pan = <&dsi_otm1906c_1080p_cmd>;
 
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
 
