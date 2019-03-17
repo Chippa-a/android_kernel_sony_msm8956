@@ -972,9 +972,13 @@
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
 
-		qcom,cpu-dma-latency-us = <60 340 900>;
-		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -1017,7 +1021,12 @@
 		qcom,bus-width = <4>;
 		qcom,large-address-bus;
 
-		qcom,cpu-dma-latency-us = <701>;
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
@@ -1059,13 +1068,18 @@
 
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
-		qcom,cpu-dma-latency-us = <60>;
-		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
 
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_sdcc3_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc3_apps_clk>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
 		qcom,core_3_0v_support;
 		qcom,nonremovable;
