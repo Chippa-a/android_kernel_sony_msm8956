@@ -960,6 +960,8 @@
 		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
+		qcom,devfreq,freq-table = <20000000 200000000>;
+
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1008,6 +1010,8 @@
 		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
+		qcom,devfreq,freq-table = <20000000 200000000>;
+
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1052,6 +1056,8 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_sdcc3_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc3_apps_clk>;
+
+		qcom,devfreq,freq-table = <20000000 200000000>;
 
 		/* PM QoS */
 		qcom,pm-qos-irq-type = "affine_cores";
