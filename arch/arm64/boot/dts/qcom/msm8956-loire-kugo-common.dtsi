@@ -143,12 +143,6 @@
 		pinctrl-1 = <&msm_gpio_36_def>;
 	};
 
-	qcom,sensor-information {
-		sensor_information101: qcom,sensor-information@101 {
-			qcom,sensor-name = "flash_therm";
-		};
-	};
-
 	camera_rgbcir_vreg: camera_rgbcir_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "camera_rgbcir_vreg";
@@ -164,10 +158,10 @@
 };
 
 &pm8950_gpios {
-	/* GPIO_8: NC (USB_ID_DET_N) */
-	gpio@c700 {
-		qcom,master-en = <0>;		/* Disable */
-		status = "ok";
+	pm8950_gpio_8: pm8950_gpio_8 {
+		pins = "gpio8";
+		function = "normal";
+		bias-high-impedance; /* DISABLE GPIO8 */
 	};
 };
 
@@ -179,20 +173,43 @@
 	status = "okay";
 };
 
-&tlmm_pinmux {
+&msm_gpio {
 	/* GPIO_12: TOF_INT */
-	msm_gpio_12 {
-		qcom,pin-func = <0>;
-		msm_gpio_12_act: active {
+	msm_gpio_12_act: msm_gpio_12_act {
+		mux {
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
 			drive-strength = <2>;
 			bias-pull-up;
 		};
-		msm_gpio_12_sus: suspend {
+	};
+
+	msm_gpio_12_sus: msm_gpio_12_sus {
+		mux {
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
 			drive-strength = <2>;
 			bias-pull-down;
 			input-enable;
 		};
-		msm_gpio_12_def: default {
+	};
+
+	msm_gpio_12_def: msm_gpio_12_def {
+		mux {
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
 			drive-strength = <2>;
 			/delete-property/ bias-disable;
 			/delete-property/ output-low;
@@ -202,18 +219,41 @@
 	};
 
 	/* GPIO_13: RGBC_IR_INT */
-	msm_gpio_13 {
-		qcom,pin-func = <0>;
-		msm_gpio_13_act: active {
+	msm_gpio_13_act: msm_gpio_13_act {
+		mux {
+			pins = "gpio13";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio13";
 			drive-strength = <2>;
 			bias-pull-up;
 		};
-		msm_gpio_13_sus: suspend {
+	};
+
+	msm_gpio_13_sus: msm_gpio_13_sus {
+		mux {
+			pins = "gpio13";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio13";
 			drive-strength = <2>;
 			bias-pull-down;
 			input-enable;
 		};
-		msm_gpio_13_def: default {
+	};
+
+	msm_gpio_13_def: msm_gpio_13_def {
+		mux {
+			pins = "gpio13";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio13";
 			drive-strength = <2>;
 			/delete-property/ bias-disable;
 			/delete-property/ output-low;
@@ -223,18 +263,41 @@
 	};
 
 	/* GPIO_18: RGBC-IR & ToF I2C SDA */
-	msm_gpio_18 {
-		qcom,pin-func = <3>;
-		msm_gpio_18_act: active {
+	msm_gpio_18_act: msm_gpio_18_act {
+		mux {
+			pins = "gpio18";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio18";
 			drive-strength = <2>;
 			bias-disable;
 		};
-		msm_gpio_18_sus: suspend {
+	};
+
+	msm_gpio_18_sus: msm_gpio_18_sus {
+		mux {
+			pins = "gpio18";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio18";
 			drive-strength = <2>;
 			bias-pull-down;
 			input-enable;
 		};
-		msm_gpio_18_def: default {
+	};
+
+	msm_gpio_18_def: msm_gpio_18_def {
+		mux {
+			pins = "gpio18";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio18";
 			drive-strength = <2>;
 			/delete-property/ bias-disable;
 			/delete-property/ output-low;
@@ -244,92 +307,75 @@
 	};
 
 	/* GPIO_19: RGBC-IR & ToF I2C SCL */
-	msm_gpio_19 {
-		qcom,pin-func = <3>;
-		msm_gpio_19_act: active {
+	msm_gpio_19_act: msm_gpio_19_act {
+		mux {
+			pins = "gpio19";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio19";
 			drive-strength = <2>;
 			bias-disable;
 		};
-		msm_gpio_19_sus: suspend {
+	};
+
+	msm_gpio_19_sus: msm_gpio_19_sus {
+		mux {
+			pins = "gpio19";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio19";
 			drive-strength = <2>;
 			bias-pull-down;
 			input-enable;
 		};
-		msm_gpio_19_def: default {
+	};
+
+	msm_gpio_19_def: msm_gpio_19_def {
+		mux {
+			pins = "gpio19";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio19";
 			drive-strength = <2>;
 			/delete-property/ bias-disable;
 			/delete-property/ output-low;
 			bias-pull-down;
 			input-enable;
-		};
-	};
-
-	/* GPIO_27: BT_DEV_WAKE */
-	msm_gpio_27 {
-		qcom,pins = <&gp 27>;
-		qcom,num-grp-pins = <1>;
-		label = "msm_gpio_27";
-		qcom,pin-func = <0>;
-		msm_gpio_27_def: default {
-			drive-strength = <2>;
-			bias-disable;
-			output-low;
-		};
-	};
-
-	/* GPIO_36: BT_REG_ON */
-	msm_gpio_36 {
-		qcom,pins = <&gp 36>;
-		qcom,num-grp-pins = <1>;
-		label = "msm_gpio_36";
-		qcom,pin-func = <0>;
-		msm_gpio_36_def: default {
-			drive-strength = <2>;
-			bias-disable;
-			output-low;
-		};
-	};
-
-	/* GPIO_107: USB_CABLE_DET_N */
-	msm_gpio_107 {
-		qcom,pin-func = <0>;
-		msm_gpio_107_def: default {
-			drive-strength = <2>;
-			bias-pull-up;
-			input-enable;
-		};
-	};
-
-	/* GPIO_116: USB_CABLE_SENSE_EN */
-	msm_gpio_116 {
-		qcom,pin-func = <0>;
-		msm_gpio_116_def: default {
-			drive-strength = <2>;
-			bias-disable;
-			output-low;
-		};
-	};
-
-	/* GPIO_131: USB_CC_INT */
-	msm_gpio_131 {
-		qcom,pin-func = <0>;
-		msm_gpio_131_def: default {
-			drive-strength = <2>;
-			/delete-property/ bias-disable;
-			/delete-property/ output-low;
-			bias-pull-up;
-			input-enable;
-		};
-	};
-
-	pmx_sdc2_data {
-		sdc2_data_on: data_on {
-			drive-strength = <8>;
 		};
 	};
 };
 
-&pmi8950_fg {
+/* GPIO_27: BT_DEV_WAKE */
+
+/* GPIO_36: BT_REG_ON */
+
+/* GPIO_107: USB_CABLE_DET_N */
+
+/* GPIO_116: USB_CABLE_SENSE_EN */
+
+/* GPIO_131: USB_CC_INT */
+&msm_gpio_131_def {
+	config {
+		/delete-property/ bias-disable;
+		/delete-property/ output-low;
+		bias-pull-up;
+		input-enable;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&qpnp_fg {
 	qcom,battery-data = <&loire_kugo_batterydata>;
 	qcom,cold-hot-jeita-hysteresis = <20 20>;
 	qcom,fg-cc-cv-threshold-mv = <4340>;
@@ -341,7 +387,7 @@
 	somc,rated-capacity-uah = <2700000>;
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	qcom,fastchg-current-ma = <2000>;
 	somc,usb-9v-current-max = <1500>;
 	qcom,float-voltage-comp = <0x08>;
@@ -433,6 +479,7 @@
 		qcom,cci-master = <1>;
 		clocks = <&clock_gcc clk_mclk2_clk_src>, <&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
 		sony,i2c_addr = <0x6c>;
 		sony,eeprom_addr = <0xA0>;
 		sony,eeprom_type = <0>;
