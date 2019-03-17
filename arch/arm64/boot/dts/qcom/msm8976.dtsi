@@ -980,6 +980,8 @@
 		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
+		qcom,devfreq,freq-table = <20000000 200000000>;
+
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1027,6 +1029,8 @@
 		qcom,pm-qos-irq-latency = <70 70>;
 		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+
+		qcom,devfreq,freq-table = <20000000 200000000>;
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
@@ -1080,6 +1084,8 @@
 		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
 		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+
+		qcom,devfreq,freq-table = <20000000 200000000>;
 
 		qcom,core_3_0v_support;
 		qcom,nonremovable;
