@@ -18,6 +18,7 @@
  */
 
 qcom,loire-kugo-send {
+	qcom,max-voltage-uv = <4350000>;
 	qcom,batt-id-kohm = <330>;
 	qcom,battery-type = "1293-8715";
 	qcom,chg-rslow-comp-c1 = <2681080>;
