@@ -131,6 +131,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35523_video>;
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
 
