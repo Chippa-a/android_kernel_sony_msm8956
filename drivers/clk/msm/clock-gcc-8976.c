@@ -10,6 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -1451,7 +1456,9 @@ static struct clk_freq_tbl ftbl_sdcc2_4_apps_clk_src[] = {
 	F(    400000,             xo,   12,    1,     4),
 	F(  20000000,          gpll0,   10,    1,     4),
 	F(  25000000,          gpll0,   16,    1,     2),
+	F(  40000000,          gpll0,   10,    1,     2),
 	F(  50000000,          gpll0,   16,    0,     0),
+	F(  80000000,          gpll0,   10,    0,     0),
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 177777778,          gpll0,  4.5,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
@@ -2796,6 +2803,7 @@ static struct branch_clk gcc_usb_fs_system_clk = {
 
 static struct branch_clk gcc_usb_hs_ahb_clk = {
 	.cbcr_reg = USB_HS_AHB_CBCR,
+	.bcr_reg  = USB_FS_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
