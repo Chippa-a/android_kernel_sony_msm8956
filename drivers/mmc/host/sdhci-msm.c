@@ -3358,7 +3358,7 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int rc = 0;
 
-	if (atomic_read(&msm_host->controller_clock))
+	if (atomic_read(&msm_host->clks_on))
 		return 0;
 
 	sdhci_msm_bus_voting(host, 1);
@@ -3396,7 +3396,7 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 			goto disable_host_clk;
 		}
 	}
-	atomic_set(&msm_host->controller_clock, 1);
+	atomic_set(&msm_host->clks_on, 1);
 	pr_debug("%s: %s: enabled controller clock\n",
 			mmc_hostname(host->mmc), __func__);
 	sdhci_msm_registers_restore(host);
@@ -3423,7 +3423,7 @@ static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
-	if (atomic_read(&msm_host->controller_clock)) {
+	if (atomic_read(&msm_host->clks_on)) {
 		sdhci_msm_registers_save(host);
 		if (!IS_ERR(msm_host->clk))
 			clk_disable_unprepare(msm_host->clk);
@@ -3434,7 +3434,7 @@ static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
 		if (!IS_ERR(msm_host->pclk))
 			clk_disable_unprepare(msm_host->pclk);
 		sdhci_msm_bus_voting(host, 0);
-		atomic_set(&msm_host->controller_clock, 0);
+		atomic_set(&msm_host->clks_on, 0);
 		pr_debug("%s: %s: disabled controller clock\n",
 			mmc_hostname(host->mmc), __func__);
 	}
@@ -3455,7 +3455,7 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 		 * after controller clocks are enbaled, update bus vote
 		 * in such case.
 		 */
-		if (atomic_read(&msm_host->controller_clock))
+		if (atomic_read(&msm_host->clks_on))
 			sdhci_msm_bus_voting(host, 1);
 
 		rc = sdhci_msm_enable_controller_clock(host);
@@ -3526,7 +3526,7 @@ disable_controller_clk:
 		clk_disable_unprepare(msm_host->bus_aggr_clk);
 	if (!IS_ERR_OR_NULL(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
-	atomic_set(&msm_host->controller_clock, 0);
+	atomic_set(&msm_host->clks_on, 0);
 remove_vote:
 	if (msm_host->msm_bus_vote.client_handle)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
@@ -5057,7 +5057,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto bus_clk_disable;
 	}
-	atomic_set(&msm_host->controller_clock, 1);
+
 
 	/* Setup SDC ufs bus aggr clock */
 	msm_host->bus_aggr_clk = devm_clk_get(&pdev->dev, "bus_aggr_clk");
@@ -5526,6 +5526,7 @@ pclk_disable:
 bus_clk_disable:
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
+	atomic_set(&msm_host->clks_on,0);
 pltfm_free:
 	sdhci_pltfm_free(pdev);
 out_host_free:
