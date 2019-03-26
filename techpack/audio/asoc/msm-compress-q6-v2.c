@@ -1031,16 +1031,27 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 					ASM_LITTLE_ENDIAN,
 					DEFAULT_QF);
 		} else {
-			ret = q6asm_media_format_block_pcm_format_support_v4(
-					prtd->audio_client,
-					prtd->sample_rate,
-					prtd->num_channels,
-					bit_width, stream_id,
-					use_default_chmap,
-					chmap,
-					sample_word_size,
-					ASM_LITTLE_ENDIAN,
-					DEFAULT_QF);
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+				ret = q6asm_media_format_block_pcm_format_support_v3(
+						prtd->audio_client,
+						prtd->sample_rate,
+						prtd->num_channels,
+						bit_width, stream_id,
+						use_default_chmap,
+						chmap,
+						sample_word_size);
+			} else {
+				ret = q6asm_media_format_block_pcm_format_support_v4(
+						prtd->audio_client,
+						prtd->sample_rate,
+						prtd->num_channels,
+						bit_width, stream_id,
+						use_default_chmap,
+						chmap,
+						sample_word_size,
+						ASM_LITTLE_ENDIAN,
+						DEFAULT_QF);
+			}
 		}
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed\n", __func__);
@@ -1359,16 +1370,24 @@ static int msm_compr_configure_dsp_for_playback
 
 		if (q6core_get_avcs_api_version_per_service(
 					APRV2_IDS_SERVICE_ID_ADSP_ASM_V) >=
-					ADSP_ASM_API_VERSION_V2)
+					ADSP_ASM_API_VERSION_V2) {
 			ret = q6asm_stream_open_write_v5(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
-		else
-			ret = q6asm_stream_open_write_v4(ac,
-				prtd->codec, bits_per_sample,
-				ac->stream_id,
-				prtd->gapless_state.use_dsp_gapless_mode);
+		} else {
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+				ret = q6asm_stream_open_write_v3(ac,
+					prtd->codec, bits_per_sample,
+					ac->stream_id,
+					prtd->gapless_state.use_dsp_gapless_mode);
+			} else {
+				ret = q6asm_stream_open_write_v4(ac,
+					prtd->codec, bits_per_sample,
+					ac->stream_id,
+					prtd->gapless_state.use_dsp_gapless_mode);
+			}
+		}
 		if (ret < 0) {
 			pr_err("%s:ASM open write err[%d] for compr type[%d]\n",
 				__func__, ret, prtd->compr_passthr);
@@ -2601,7 +2620,13 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		pr_debug("%s: open_write stream_id %d bits_per_sample %d",
 				__func__, stream_id, bits_per_sample);
-		rc = q6asm_stream_open_write_v4(prtd->audio_client,
+		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7)
+			rc = q6asm_stream_open_write_v3(prtd->audio_client,
+				prtd->codec, bits_per_sample,
+				stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
+		else
+			rc = q6asm_stream_open_write_v4(prtd->audio_client,
 				prtd->codec, bits_per_sample,
 				stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
