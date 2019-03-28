@@ -2630,7 +2630,11 @@ wl_run_escan(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 						| IEEE80211_CHAN_RADAR))
 #else
 						(IEEE80211_CHAN_RADAR
+#ifdef CUSTOMER_HW5
+						| 0))
+#else
 						| IEEE80211_CHAN_PASSIVE_SCAN))
+#endif	/* CUSTOMER_HW5 */
 #endif
 						continue;
 

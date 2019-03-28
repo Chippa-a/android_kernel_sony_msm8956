@@ -2,6 +2,7 @@
  * DHD Bus Module for SDIO
  *
  * Copyright (C) 1999-2018, Broadcom Corporation
+ * Copyright (C) 2014 Sony Mobile Communications Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -73,6 +74,8 @@
 #ifdef DHDTCPACK_SUPPRESS
 #include <dhd_ip.h>
 #endif /* DHDTCPACK_SUPPRESS */
+
+#include <dhd_somc_custom.h>
 
 bool dhd_mp_halting(dhd_pub_t *dhdp);
 extern void bcmsdh_waitfor_iodrain(void *sdh);
@@ -201,6 +204,9 @@ typedef struct dhd_console {
 #define OVERFLOW_BLKSZ512_MES		80
 
 #define CC_PMUCC3	(0x3)
+#if defined(CUSTOMER_HW5)
+#define DHD_DPC_LOG_SZ	(256)
+#endif /* CUSTOMER_HW5 */
 /* Private data for SDIO bus interaction */
 typedef struct dhd_bus {
 	dhd_pub_t	*dhd;
@@ -380,6 +386,11 @@ typedef struct dhd_bus {
 #ifdef DHDENABLE_TAILPAD
 	void		*pad_pkt;
 #endif /* DHDENABLE_TAILPAD */
+#if defined(CUSTOMER_HW5)
+	char		dpc_log_previous[DHD_DPC_LOG_SZ];
+	char		dpc_log_current[DHD_DPC_LOG_SZ];
+	int			dpc_log_loops;
+#endif /* CUSTOMER_HW5 */
 } dhd_bus_t;
 
 /* clkstate */
@@ -876,7 +887,11 @@ dhdsdio_clk_kso_init(dhd_bus_t *bus)
 #define KSO_WAKE_RETRY_COUNT 100
 #define ERROR_BCME_NODEVICE_MAX 1
 
+#if defined(CUSTOMER_HW5)
+#define MAX_KSO_ATTEMPTS 64
+#else
 #define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
+#endif
 static int
 dhdsdio_clk_kso_enab(dhd_bus_t *bus, bool on)
 {
@@ -6289,15 +6304,27 @@ exit:
 	dhd_os_sdunlock(bus->dhd);
 #if defined(CUSTOMER_HW5)
 	if (bus->dhd->dhd_bug_on) {
-		DHD_INFO(("%s: resched = %d ctrl_frame_stat = %d intstatus 0x%08x"
-			" ipend = %d pktq_mlen = %d is_resched_by_readframe = %d \n",
-			__FUNCTION__, resched, bus->ctrl_frame_stat,
-			bus->intstatus, bus->ipend,
-			pktq_mlen(&bus->txq, ~bus->flowcontrol), is_resched_by_readframe));
-
-			bus->dhd->dhd_bug_on = FALSE;
+		sprintf(bus->dpc_log_current, "%s: resched = %d ctrl_frame_stat = %d "
+			"intstatus 0x%08x ipend = %d pktq_mlen = %d "
+			"is_resched_by_readframe = %d TXCTLOK = %d, clkstate = %d\n",
+				__FUNCTION__, resched, bus->ctrl_frame_stat,
+				bus->intstatus, bus->ipend,
+				pktq_mlen(&bus->txq, ~bus->flowcontrol), is_resched_by_readframe,
+				TXCTLOK(bus), bus->clkstate);
+		if (strcmp(bus->dpc_log_previous, bus->dpc_log_current) == 0) {
+			/* Same log */
+			bus->dpc_log_loops++;
+		} else {
+			if (bus->dpc_log_loops) {
+				DHD_ERROR(("(%d) %s\n", bus->dpc_log_loops, bus->dpc_log_previous));
+			}
+			DHD_ERROR(("%s\n", bus->dpc_log_current));
+			strcpy(bus->dpc_log_previous, bus->dpc_log_current);
+			bus->dpc_log_loops = 0;
+		}
+		bus->dhd->dhd_bug_on = FALSE;
 	}
-#endif
+#endif /* CUSTOMER_HW5 */
 	return resched;
 }
 
@@ -7470,6 +7497,11 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 	bus->txinrx_thres = CUSTOM_TXINRX_THRES;
 	/* TX first in dhdsdio_readframes() */
 	bus->dotxinrx = TRUE;
+#if defined(CUSTOMER_HW5)
+	memset(bus->dpc_log_previous,	0, sizeof(bus->dpc_log_previous));
+	memset(bus->dpc_log_current, 0, sizeof(bus->dpc_log_current));
+	bus->dpc_log_loops = 0;
+#endif /* CUSTOMER_HW5 */
 
 	return TRUE;
 }
@@ -7926,6 +7958,12 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	if (len > 0 && len < MAX_NVRAMBUF_SIZE) {
 		bufp = (char *)memblock;
 		bufp[len] = 0;
+
+		if (somc_txpower_calibrate(memblock, len) != BCME_OK) {
+			DHD_ERROR(("%s: error calibrating tx power\n", __FUNCTION__));
+			goto err;
+		}
+
 		len = process_nvram_vars(bufp, len);
 		if (len % 4) {
 			len += 4 - (len % 4);
