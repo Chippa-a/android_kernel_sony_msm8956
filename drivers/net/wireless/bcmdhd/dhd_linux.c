@@ -7888,6 +7888,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #ifdef SUPPORT_2G_VHT
 	uint32 vht_features = 0x3; /* 2G enable | rates all */
 #endif /* SUPPORT_2G_VHT */
+#ifdef DISABLE_11N_PROPRIETARY_RATES
+	uint32 ht_features = 0;
+#endif /* DISABLE_11N_PROPRIETARY_RATES */
 #ifdef CUSTOM_PSPRETEND_THR
 	uint32 pspretend_thr = CUSTOM_PSPRETEND_THR;
 #endif
@@ -8370,6 +8373,13 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		DHD_ERROR(("%s vht_features set failed %d\n", __FUNCTION__, ret));
 	}
 #endif /* SUPPORT_2G_VHT */
+#ifdef DISABLE_11N_PROPRIETARY_RATES
+	ret = dhd_iovar(dhd, 0, "ht_features", (char *)&ht_features, sizeof(ht_features),
+		NULL, 0, TRUE);
+	if (ret < 0) {
+		DHD_ERROR(("%s ht_features set failed %d\n", __FUNCTION__, ret));
+	}
+#endif /* DISABLE_11N_PROPRIETARY_RATES */
 #ifdef CUSTOM_PSPRETEND_THR
 	/* Turn off MPC in AP mode */
 	ret = dhd_iovar(dhd, 0, "pspretend_threshold", (char *)&pspretend_thr,
@@ -10195,7 +10205,7 @@ dhd_os_tcpackunlock(dhd_pub_t *pub, unsigned long flags)
 
 	if (dhd) {
 #ifdef BCMSDIO
-		spin_lock_bh(&dhd->tcpack_lock);
+		spin_unlock_bh(&dhd->tcpack_lock);
 #else
 		spin_unlock_irqrestore(&dhd->tcpack_lock, flags);
 #endif /* BCMSDIO */

@@ -41,6 +41,13 @@ config BCM4359
 	  This module adds support for wireless adapters based on
 	  Broadcom 4359 chipset.
 
+config BCM43455
+	bool "Broadcom 43455 wireless cards support"
+	depends on BCMDHD && BCMDHD_SDIO
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43455 chipset.
+
 config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
