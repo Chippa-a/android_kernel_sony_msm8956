@@ -341,9 +341,20 @@ static int wifi_plat_dev_drv_remove(struct platform_device *pdev)
 		wifi_platform_set_power(adapter, FALSE, WIFI_TURNOFF_DELAY);
 #else
 		wifi_platform_set_power(adapter, FALSE, WIFI_TURNOFF_DELAY);
+#ifndef CUSTOMER_HW5
 		wifi_platform_bus_enumerate(adapter, FALSE);
+#endif
 #endif /* BCMPCIE */
 	}
+
+#ifdef CUSTOMER_HW5
+	/* Sony mobile uses ENABLE_INSMOD_NO_FW_LOAD for module type driver
+	 * They want to download firmware when primary interface is brought up
+	 * The is_power_on is set to false through wl_android_wifi_off().
+	 * So move the func to here.
+	 */
+	wifi_platform_bus_enumerate(adapter, FALSE);
+#endif
 
 #if defined(CONFIG_DTS) && !defined(CUSTOMER_HW5)
 	regulator_put(wifi_regulator);
