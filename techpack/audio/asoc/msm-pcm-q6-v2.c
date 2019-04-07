@@ -386,7 +386,8 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
-	} else if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+	} else if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+			q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 		ret = q6asm_open_write_v3(prtd->audio_client,
 				fmt_type, bits_per_sample);
 		if (ret < 0) {
@@ -456,7 +457,8 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 				sample_word_size, ASM_LITTLE_ENDIAN,
 				DEFAULT_QF);
 		} else {
-			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+					q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 				ret = q6asm_media_format_block_multi_ch_pcm_v3(
 					prtd->audio_client, runtime->rate,
 					runtime->channels, !prtd->set_channel_map,
@@ -536,7 +538,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				FORMAT_LINEAR_PCM,
 				bits_per_sample, false, ENC_CFG_ID_NONE);
 		} else {
-			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+					q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 				ret = q6asm_open_read_v3(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
 					bits_per_sample);
@@ -625,7 +628,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 						ASM_LITTLE_ENDIAN,
 						DEFAULT_QF);
 	} else {
-		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+				q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 			ret = q6asm_enc_cfg_blk_pcm_format_support_v3(
 							prtd->audio_client,
 							prtd->samp_rate,
