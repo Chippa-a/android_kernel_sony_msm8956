@@ -1031,7 +1031,8 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 					ASM_LITTLE_ENDIAN,
 					DEFAULT_QF);
 		} else {
-			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+					q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 				ret = q6asm_media_format_block_pcm_format_support_v3(
 						prtd->audio_client,
 						prtd->sample_rate,
@@ -1376,7 +1377,8 @@ static int msm_compr_configure_dsp_for_playback
 				ac->stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
 		} else {
-			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+					q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
 				ret = q6asm_stream_open_write_v3(ac,
 					prtd->codec, bits_per_sample,
 					ac->stream_id,
@@ -1503,12 +1505,18 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 	pr_debug("%s: stream_id %d bits_per_sample %d\n",
 			__func__, ac->stream_id, bits_per_sample);
 
-	if (prtd->codec_param.codec.flags & COMPRESSED_TIMESTAMP_FLAG) {
-		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
-			bits_per_sample, true);
+
+	if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6) {
+		ret = q6asm_open_read_v3(prtd->audio_client, FORMAT_LINEAR_PCM,
+			bits_per_sample);
 	} else {
-		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
-			bits_per_sample, false);
+		if (prtd->codec_param.codec.flags & COMPRESSED_TIMESTAMP_FLAG) {
+			ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
+				bits_per_sample, true);
+		} else {
+			ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
+				bits_per_sample, false);
+		}
 	}
 	if (ret < 0) {
 		pr_err("%s: q6asm_open_read failed:%d\n", __func__, ret);
@@ -1568,10 +1576,15 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 	pr_debug("%s: sample_rate = %d channels = %d bps = %d sample_word_size = %d\n",
 			__func__, prtd->sample_rate, prtd->num_channels,
 					 bits_per_sample, sample_word_size);
-	ret = q6asm_enc_cfg_blk_pcm_format_support_v4(prtd->audio_client,
-					prtd->sample_rate, prtd->num_channels,
-					bits_per_sample, sample_word_size,
-					ASM_LITTLE_ENDIAN, DEFAULT_QF);
+	if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6)
+		ret = q6asm_enc_cfg_blk_pcm_format_support_v3(prtd->audio_client,
+						prtd->sample_rate, prtd->num_channels,
+						bits_per_sample, sample_word_size);
+	else
+		ret = q6asm_enc_cfg_blk_pcm_format_support_v4(prtd->audio_client,
+						prtd->sample_rate, prtd->num_channels,
+						bits_per_sample, sample_word_size,
+						ASM_LITTLE_ENDIAN, DEFAULT_QF);
 
 	return ret;
 }
@@ -2620,7 +2633,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		pr_debug("%s: open_write stream_id %d bits_per_sample %d",
 				__func__, stream_id, bits_per_sample);
-		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_7)
+		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+				q6core_get_avs_version() == Q6_SUBSYS_AVS2_7)
 			rc = q6asm_stream_open_write_v3(prtd->audio_client,
 				prtd->codec, bits_per_sample,
 				stream_id,
