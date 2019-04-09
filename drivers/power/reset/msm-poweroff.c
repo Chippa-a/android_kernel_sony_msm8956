@@ -10,6 +10,11 @@
  * GNU General Public License for more details.
  *
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -49,6 +54,8 @@
 #define SCM_DLOAD_MINIDUMP		0X20
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
+#define SUPPORT_DISABLE_RAMDUMP
+
 static int restart_mode;
 static void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
@@ -58,6 +65,7 @@ static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
 static void scm_disable_sdi(void);
 static bool force_warm_reboot;
+static int in_panic;
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 /* Runtime could be only changed value once.
@@ -76,7 +84,6 @@ static const int download_mode;
 #define KASLR_OFFSET_PROP "qcom,msm-imem-kaslr_offset"
 #endif
 
-static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
@@ -227,6 +234,56 @@ static bool get_dload_mode(void)
 {
 	return false;
 }
+
+#ifdef SUPPORT_DISABLE_RAMDUMP
+static int disable_ramdump;
+static int ramdump_disable_set(const char *val,
+			      const struct kernel_param *kp);
+module_param_call(disable_ramdump, ramdump_disable_set,
+			param_get_int, &disable_ramdump, 0644);
+
+static int panic_prep_restart(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	if (!disable_ramdump)
+		in_panic = 1;
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call	= panic_prep_restart,
+};
+
+static int ramdump_disable_set(const char *val,
+			      const struct kernel_param *kp)
+{
+	int ret;
+	int old_val = disable_ramdump;
+
+	if (disable_ramdump) {
+		pr_err("do not handle this action since ramdump is disabled\n");
+		return 0;
+	}
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		return ret;
+
+	/* If download_mode is not zero or one, ignore. */
+	if (disable_ramdump >> 1) {
+		disable_ramdump = old_val;
+		return -EINVAL;
+	}
+	if (disable_ramdump) {
+		set_dload_mode(0);
+		scm_disable_sdi();
+		__raw_writel(0x776655AA, restart_reason);
+		pr_err("disable ramdump\n");
+	}
+	return 0;
+}
+#endif
 #endif
 
 static void scm_disable_sdi(void)
@@ -312,7 +369,13 @@ static void msm_restart_prepare(const char *cmd)
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		u32 prev_reason;
+
+		prev_reason = __raw_readl(restart_reason);
+		if (prev_reason != 0xABADF00D)
+			__raw_writel(0xC0DEDEAD, restart_reason);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -320,7 +383,7 @@ static void msm_restart_prepare(const char *cmd)
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_RECOVERY);
-			__raw_writel(0x77665502, restart_reason);
+			__raw_writel(0x6f656d46, restart_reason); //oem-46
 		} else if (!strcmp(cmd, "rtc")) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_RTC);
@@ -367,6 +430,8 @@ static void msm_restart_prepare(const char *cmd)
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		__raw_writel(0x776655AA, restart_reason);
 	}
 
 	flush_cache_all();
@@ -432,6 +497,7 @@ static void do_msm_poweroff(void)
 	set_dload_mode(0);
 	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
 
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
@@ -579,6 +645,10 @@ static int msm_restart_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct device_node *np;
 	int ret = 0;
+
+#ifdef SUPPORT_DISABLE_RAMDUMP
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+#endif
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
