@@ -785,7 +785,7 @@ void do_exit(long code)
 
 	sched_exit(tsk);
 
-	if (tsk->flags & PF_SU) {
+	if (tsk->task_is_su) {
 		su_exit();
 	}
 
