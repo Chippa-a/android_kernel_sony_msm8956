@@ -248,12 +248,9 @@ static int mdss_dsi_panel_calculation_sleep(
 	int wait = 0;
 
 	if (mdss_dsi_panel_driver_is_seq_for_ewu() &&
-		(gpio == spec_pdata->touch_reset_gpio) &&
-		!enable) {
-		if (&spec_pdata->ewu_seq)
-			pw_seq = &spec_pdata->ewu_seq;
-		else
-			pw_seq = &spec_pdata->on_seq;
+	    gpio == spec_pdata->touch_reset_gpio &&
+	    !enable) {
+		pw_seq = &spec_pdata->ewu_seq;
 	} else {
 		if (enable)
 			pw_seq = &spec_pdata->on_seq;
@@ -876,9 +873,7 @@ int mdss_dsi_panel_driver_reset_panel(struct mdss_panel_data *pdata, int enable)
 	}
 
 	if (mdss_dsi_panel_driver_is_seq_for_ewu() && enable)
-		pw_seq = &ctrl_pdata->spec_pdata->ewu_seq ?
-				&ctrl_pdata->spec_pdata->ewu_seq :
-				&ctrl_pdata->spec_pdata->on_seq;
+		pw_seq = &ctrl_pdata->spec_pdata->ewu_seq;
 	else
 		pw_seq = (enable) ? &ctrl_pdata->spec_pdata->on_seq :
 					&ctrl_pdata->spec_pdata->off_seq;
