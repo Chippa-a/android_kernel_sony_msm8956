@@ -48,7 +48,7 @@
 			synaptics,display-coords = <0 0 1079 1919>;
 			synaptics,panel-coords = <0 0 1079 2063>;
 			synaptics,key-codes = <158 139 172 217>;
-                };
+		};
 	};
 };
 
