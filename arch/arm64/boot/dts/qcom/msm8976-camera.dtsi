@@ -397,7 +397,7 @@
 		qcom,msm-bus,vectors-KBps =
 			<106 512 0 0>,
 			<106 512 0 0>;
-			qcom,msm-bus-vector-dyn-vote;
+		qcom,msm-bus-vector-dyn-vote;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;
