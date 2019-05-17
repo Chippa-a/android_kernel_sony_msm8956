@@ -14,8 +14,11 @@
 	qcom,vidc@1d00000 {
 		compatible = "qcom,msm-vidc";
 		reg = <0x01d00000 0xff000>,
-			<0x000a4120 0x4>;
-		reg-names = "vidc", "efuse";
+			<0x000a4120 0x4>,
+			<0x000a0164 0x4>;
+		reg-names = "vidc", "efuse", "efuse2";
+		qcom,platform-version = <0x60000000 0x1d>;
+		qcom,capability-version = <0x00002000 0x0d>;
 		interrupts = <0 44 0>;
 		vdd-cx-supply = <&pm8950_s2_level_ao>;
 		venus-supply = <&gdsc_venus>;
