@@ -683,12 +683,6 @@
 	};
 };
 
-&pmi8950_charger {
-	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
-		regulator-name = "smbcharger_charger_otg";
-	};
-};
-
 &soc {
 	eldo2_8976: eldo2 {
 		compatible = "regulator-fixed";

@@ -301,12 +301,12 @@
 };
 
 &pm8004_mpps {
-	mpp@a300 { /* PM8004 MPP4 */
-		/* HDMI_vreg regulator enable */
-		qcom,mode = <1>;                /* Digital output */
-		qcom,output-type = <0>;         /* CMOS logic */
-		qcom,vin-sel = <0>;             /* VPH_PWR */
-		qcom,src-sel = <0>;             /* Constant */
-		qcom,master-en = <1>;           /* Enable MPP */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm_mpp4_hdmi_vreg_default>;
+	pm_mpp4_hdmi_vreg_default: pm8004_mpp4 {
+		pins = "mpp4"; /* HDMI_vreg regulator enable */
+		function = "digital"; /* Digital */
+		output-high;	/* Output */
+		power-source = <0>; /* VPH_PWR */
 	};
 };

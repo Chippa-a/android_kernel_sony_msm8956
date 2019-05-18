@@ -81,10 +81,10 @@
 	status = "ok";
 };
 
-&pmi8950_fg {
+&qpnp_fg {
 	status = "disabled";
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	status = "disabled";
 };
