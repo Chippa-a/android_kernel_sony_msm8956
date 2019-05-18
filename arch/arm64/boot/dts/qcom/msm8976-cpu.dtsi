@@ -58,9 +58,9 @@
 			compatible = "arm,armv8";
 			reg = <0x0>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x100000>;
@@ -83,9 +83,9 @@
 			compatible = "arm,armv8";
 			reg = <0x1>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_1: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -101,9 +101,9 @@
 			compatible = "arm,armv8";
 			reg = <0x2>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_2: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -119,9 +119,9 @@
 			compatible = "arm,armv8";
 			reg = <0x3>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_3: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -137,9 +137,9 @@
 			compatible = "arm,armv8";
 			reg = <0x100>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile1>;
 			efficiency = <1830>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x100000>;
@@ -162,9 +162,9 @@
 			compatible = "arm,armv8";
 			reg = <0x101>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile2>;
 			efficiency = <1830>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_101: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0xCC00>;
@@ -180,9 +180,9 @@
 			compatible = "arm,armv8";
 			reg = <0x102>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile3>;
 			efficiency = <1830>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_102: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0xCC00>;
@@ -198,9 +198,9 @@
 			compatible = "arm,armv8";
 			reg = <0x103>;
 			enable-method = "psci";
-			qcom,limits-info = <&mitigation_profile4>;
 			efficiency = <1830>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_103: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0xCC00>;

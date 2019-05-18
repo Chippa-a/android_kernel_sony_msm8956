@@ -113,6 +113,9 @@
 		vddcx-supply = <&gdsc_oxili_cx>;
 		vdd-supply = <&gdsc_oxili_gx>;
 
+		/* Enable gpu cooling device */
+		#cooling-cells = <2>;
+
 		/* IOMMU Data */
 		iommu = <&gfx_iommu>;
 
