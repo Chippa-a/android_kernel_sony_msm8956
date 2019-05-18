@@ -48,6 +48,18 @@
 	};
 };
 
+&pm8950_gpios {
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			pins = "gpio5";
+			function = "func1";
+			input-enable;
+			power-source = <2>;
+			bias-disable;
+		};
+	};
+};
+
 &i2c_6 { /* BLSP2 QUP2 */
 	nq@2b {
 		compatible = "qcom,nq-nci";
@@ -61,7 +73,8 @@
 		interrupts = <21 0>;
 		interrupt-names = "nfc_irq";
 		pinctrl-names = "nfc_active", "nfc_suspend";
-		pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+		pinctrl-0 = <&nfc_int_active &nfc_disable_active
+						&nfc_clk_default>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
@@ -250,11 +263,11 @@
 	};
 };
 
-&pmi8950_fg {
+&qpnp_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,chg-led-support;
 	qcom,chg-led-sw-controls;

@@ -303,11 +303,11 @@
 	qcom,batt-id-kohm = <500>;
 };
 
-&pmi8950_fg {
+&qpnp_fg {
 	qcom,battery-data = <&polaris_batterydata>;
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	qcom,battery-data = <&polaris_batterydata>;
 	qcom,chg-led-support;
 	qcom,chg-led-sw-controls;
