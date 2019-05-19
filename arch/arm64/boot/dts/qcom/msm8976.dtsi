@@ -881,13 +881,13 @@
 	};
 
 	blsp1_uart2: serial@78b0000 {
-		compatible = "qcom,msm-lsuart-v14";
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
-		status = "disabled";
-		clock-names = "core_clk", "iface_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
-		       <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core", "iface";
+		status = "disabled";
 	};
 
 	blsp1_uart0: uart@78af000 {
@@ -896,9 +896,9 @@
 			<0x7884000 0x1f000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
-		#address-cells = <0>;
 		interrupt-parent = <&blsp1_uart0>;
 		interrupts = <0 1 2>;
+		#address-cells = <0>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 107 0
