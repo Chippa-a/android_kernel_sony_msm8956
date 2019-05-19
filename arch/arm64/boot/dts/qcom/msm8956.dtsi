@@ -1834,13 +1834,16 @@
 		memory-region = <&adsp_mem>;
 	};
 
-	qcom,adsprpc_domains {
-		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-legacy-compute";
 		qcom,msm_fastrpc_compute_cb {
-			qcom,adsp-shared-phandle = <&adsp_shared>;
-			qcom,adsp-shared-sids =
-					<0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
-			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
+			compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x2c05 0x00>,
+				<&apps_smmu 0x2c06 0x01>,
+				<&apps_smmu 0x2c08 0x03>,
+				<&apps_smmu 0x2c0c 0x00>;
+			sids = <0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
 		};
 	};
 };
