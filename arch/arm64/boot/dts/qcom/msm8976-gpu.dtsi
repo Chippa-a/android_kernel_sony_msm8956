@@ -116,9 +116,6 @@
 		/* Enable gpu cooling device */
 		#cooling-cells = <2>;
 
-		/* IOMMU Data */
-		iommu = <&gfx_iommu>;
-
 		/*  Quirks  */
 		qcom,gpu-quirk-two-pass-use-wfi;
 		qcom,gpu-quirk-dp2clockgating-disable;
@@ -417,11 +414,13 @@
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_user";
+			iommus = <&kgsl_smmu 0>;
 			qcom,gpu-offset = <0x48000>;
 		};
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_secure";
+			iommus = <&kgsl_smmu 2>;
 			memory-region = <&secure_mem>;
 		};
 	};
