@@ -105,28 +105,86 @@
 			<360000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
 			<400000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
-		qcom,vidc-iommu-domains {
-			qcom,domain-ns {
-				qcom,vidc-domain-phandle = <&venus_domain_ns>;
-				qcom,vidc-buffer-types = <0xfff>;
-			};
-
-			qcom,domain-sec-bs {
-				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
-				qcom,vidc-buffer-types = <0x241>;
-			};
-
-			qcom,domain-sec-px {
-				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
-				qcom,vidc-buffer-types = <0x106>;
-			};
-
-			qcom,domain-sec-np {
-				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
-				qcom,vidc-buffer-types = <0x480>;
-			};
+		/* MMUs */
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus = <&apps_smmu 0x800 0x1>,
+				<&apps_smmu 0x807 0x0>,
+				<&apps_smmu 0x808 0x3>,
+				<&apps_smmu 0x80C 0x3>,
+				<&apps_smmu 0x810 0x1>,
+				<&apps_smmu 0x821 0x0>,
+				<&apps_smmu 0x828 0x1>,
+				<&apps_smmu 0x82B 0x0>,
+				<&apps_smmu 0x82C 0x1>,
+				<&apps_smmu 0x831 0x0>,
+				<&apps_smmu 0x3000 0x1>,
+				<&apps_smmu 0x3007 0x0>,
+				<&apps_smmu 0x3008 0x3>,
+				<&apps_smmu 0x300C 0x3>,
+				<&apps_smmu 0x3010 0x1>,
+				<&apps_smmu 0x3021 0x0>,
+				<&apps_smmu 0x3028 0x1>,
+				<&apps_smmu 0x302B 0x0>,
+				<&apps_smmu 0x302C 0x1>,
+				<&apps_smmu 0x3031 0x0>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x5dc00000 0x7f000000
+				0xdcc00000 0x1000000>;
 		};
 
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus = <&apps_smmu 0x902 0x8>,
+				<&apps_smmu 0x90e 0x0>,
+				<&apps_smmu 0x909 0x2>,
+				<&apps_smmu 0x3102 0x8>,
+				<&apps_smmu 0x310e 0x0>,
+				<&apps_smmu 0x3109 0x2>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&apps_smmu 0x904 0x0>,
+				<&apps_smmu 0x90c 0x20>,
+				<&apps_smmu 0x910 0x0>,
+				<&apps_smmu 0x3104 0x0>,
+				<&apps_smmu 0x310c 0x20>,
+				<&apps_smmu 0x3110 0x0>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&apps_smmu 0x940 0x0>,
+				<&apps_smmu 0x905 0x0>,
+				<&apps_smmu 0x907 0x0>,
+				<&apps_smmu 0x908 0x20>,
+				<&apps_smmu 0x90d 0x0>,
+				<&apps_smmu 0x925 0x0>,
+				<&apps_smmu 0x92d 0x0>,
+				<&apps_smmu 0x3140 0x0>,
+				<&apps_smmu 0x3105 0x0>,
+				<&apps_smmu 0x3107 0x0>,
+				<&apps_smmu 0x3108 0x20>,
+				<&apps_smmu 0x310d 0x0>,
+				<&apps_smmu 0x3125 0x0>,
+				<&apps_smmu 0x312d 0x0>;
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+
+		/* Buses */
 		venus_bus_ddr {
 			compatible = "qcom,msm-vidc,bus";
 			label = "venus-ddr";
