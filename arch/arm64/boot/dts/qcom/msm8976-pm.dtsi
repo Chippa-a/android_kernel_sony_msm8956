@@ -32,7 +32,7 @@
 		qcom,pfm-port = <0x2>;
 	};
 
-	cluster1_spm: qcom,spm@b012000 {
+	qcom,spm@b012000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -64,8 +64,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			label = "system";
-			qcom,spm-device-names = "cci";
-			qcom,default-level = <0>;
 			qcom,psci-mode-shift = <8>;
 			qcom,psci-mode-mask = <0xf>;
 
@@ -110,9 +108,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				label = "a53";
-				qcom,spm-device-names = "l2";
-				qcom,default-level=<0>;
-				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,psci-mode-shift = <4>;
 				qcom,psci-mode-mask = <0xf>;
 
@@ -168,11 +163,12 @@
 					#size-cells = <0>;
 					qcom,psci-mode-shift = <0>;
 					qcom,psci-mode-mask = <0xf>;
+					qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
 					qcom,pm-cpu-level@0 {
 						reg = <0>;
 						qcom,psci-cpu-mode = <1>;
-						qcom,spm-cpu-mode = "wfi";
+						label = "wfi";
 						qcom,latency-us = <58>;
 						qcom,ss-power = <547>;
 						qcom,energy-overhead = <61640>;
@@ -182,7 +178,7 @@
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,psci-cpu-mode = <3>;
-						qcom,spm-cpu-mode = "pc";
+						label = "pc";
 						qcom,latency-us = <149>;
 						qcom,ss-power = <489>;
 						qcom,energy-overhead = <199236>;
@@ -200,9 +196,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				label = "a72";
-				qcom,spm-device-names = "l2";
-				qcom,default-level=<0>;
-				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,psci-mode-shift = <4>;
 				qcom,psci-mode-mask = <0xf>;
 
@@ -261,11 +254,12 @@
 					#size-cells = <0>;
 					qcom,psci-mode-shift = <0>;
 					qcom,psci-mode-mask = <0xf>;
+					qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 
 					qcom,pm-cpu-level@0 {
 						reg = <0>;
 						qcom,psci-cpu-mode = <1>;
-						qcom,spm-cpu-mode = "wfi";
+						label = "wfi";
 						qcom,latency-us = <31>;
 						qcom,ss-power = <552>;
 						qcom,energy-overhead = <64172>;
@@ -275,7 +269,7 @@
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,psci-cpu-mode = <2>;
-						qcom,spm-cpu-mode = "retention";
+						label = "retention";
 						qcom,latency-us = <99>;
 						qcom,ss-power = <540>;
 						qcom,energy-overhead = <150122>;
@@ -288,7 +282,7 @@
 					qcom,pm-cpu-level@2 {
 						reg = <2>;
 						qcom,psci-cpu-mode = <3>;
-						qcom,spm-cpu-mode = "pc";
+						label = "pc";
 						qcom,latency-us = <144>;
 						qcom,ss-power = <520>;
 						qcom,energy-overhead = <194277>;
