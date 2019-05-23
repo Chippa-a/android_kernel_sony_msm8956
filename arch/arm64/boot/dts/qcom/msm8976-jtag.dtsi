@@ -12,12 +12,6 @@
  */
 
 &soc {
-	jtag_fuse: jtagfuse@a601c {
-		compatible = "qcom,jtag-fuse-v2";
-		reg = <0xa601c 0x8>;
-		reg-names = "fuse-base";
-	};
-
 	jtag_mm0: jtagmm@6840000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x6840000 0x1000>,
