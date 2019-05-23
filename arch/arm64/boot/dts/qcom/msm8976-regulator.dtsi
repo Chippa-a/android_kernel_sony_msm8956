@@ -362,7 +362,7 @@
 			compatible = "qcom,spm-regulator";
 			reg = <0x2000 0x100>;
 			regulator-name = "pm8950_s5";
-			regulator-min-microvolt = <500000>;
+			regulator-min-microvolt = <790000>;
 			regulator-max-microvolt = <1165000>;
 			qcom,cpu-num = <0>;
 		};
