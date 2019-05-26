@@ -926,6 +926,7 @@
 				};
 			};
 		};
+
 		wcnss_pmux_gpio: wcnss_pmux_gpio {
 			wcnss_gpio_default: wcnss_gpio_default {
 				/* Active configuration of bus pins */
@@ -943,6 +944,22 @@
 					       "gpio44";
 					drive-strength = <6>; /* 6 MA */
 					bias-pull-up; /* PULL UP */
+				};
+			};
+		};
+
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio120";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio120";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
 				};
 			};
 		};

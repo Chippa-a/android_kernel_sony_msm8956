@@ -199,10 +199,8 @@
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft";
-		/delete-node/ qcom,msm-gpios;
-		/delete-node/ qcom,pinctrl-names;
-		/delete-node/ pinctrl-names;
-		/delete-node/ qcom,cdc-us-euro-gpios;
+		/delete-property/ qcom,cdc-us-euro-gpios;
+		/delete-property/ qcom,cdc-us-eu-gpios;
 	};
 
 	gpio_keys {
