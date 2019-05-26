@@ -91,16 +91,6 @@
 	};
 
 	sound-9335 {
-		qcom,msm-gpios =
-			"us_eu_gpio";
-		qcom,pinctrl-names =
-			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-names =
-			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-0 = <&cross_conn_det_sus>;
-		pinctrl-1 = <&cross_conn_det_act>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
 	};
 };
@@ -233,10 +223,10 @@
 	qcom,chg-led-sw-controls;
 };
 
-&pm8950_cajon_dig {
+&msm_digital_codec {
 	status = "disabled";
 };
 
-&pm8950_cajon_analog {
+&pmic_analog_codec {
 	status = "disabled";
 };

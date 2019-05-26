@@ -68,16 +68,7 @@
 			"AMIC3", "MIC BIAS External",
 			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
-		qcom,msm-gpios =
-			"pri_i2s";
-		qcom,pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
-		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&voice_svc>;
@@ -111,8 +102,8 @@
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>, <&pm8950_cajon_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec";
 		asoc-wsa-codec-names = "wsa881x-i2c-codec.8-000f";
 		asoc-wsa-codec-prefixes = "SpkrMono";
 
@@ -121,80 +112,50 @@
 		qcom,msm-vdd-wsa-switch-current = <5000>;
 	};
 
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
+	};
+
 	i2c@7af8000 {
-		wsa881x-i2c-codec@e {
-			compatible = "qcom,wsa881x-i2c-codec";
-			reg = <0x0e>;
-			qcom,msm-gpios = "wsa_clk",
-					"wsa_reset",
-					"wsa_vi";
-			qcom,pinctrl-names = "all_off",
-					"wsa_clk",
-					"wsa_active",
-					"wsa_clk_active",
-					"wsa_vi",
-					"wsa_clk_vi",
-					"wsa_active_vi",
-					"wsa_all";
-			pinctrl-names = "all_off",
-					"wsa_clk",
-					"wsa_active",
-					"wsa_clk_active",
-					"wsa_vi",
-					"wsa_clk_vi",
-					"wsa_active_vi",
-					"wsa_all";
-			pinctrl-0 = <&wsa_clk_off &wsa_spkr_sd_sus &wsa_vi_sus>;
-			pinctrl-1 = <&wsa_clk_on &wsa_spkr_sd_sus &wsa_vi_sus>;
-			pinctrl-2 = <&wsa_clk_off &wsa_spkr_sd_act &wsa_vi_sus>;
-			pinctrl-3 = <&wsa_clk_on &wsa_spkr_sd_act &wsa_vi_sus>;
-			pinctrl-4 = <&wsa_clk_off &wsa_spkr_sd_sus &wsa_vi_act>;
-			pinctrl-5 = <&wsa_clk_on &wsa_spkr_sd_sus &wsa_vi_act>;
-			pinctrl-6 = <&wsa_clk_off &wsa_spkr_sd_act &wsa_vi_act>;
-			pinctrl-7 = <&wsa_clk_on &wsa_spkr_sd_act &wsa_vi_act>;
-		};
-
-		wsa881x-i2c-codec@44 {
-			compatible = "qcom,wsa881x-i2c-codec";
-			reg = <0x44>;
-		};
-
-		wsa881x-i2c-codec@f {
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		wsa881x_i2c_f: wsa881x-i2c-codec@f {
+			status = "okay";
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0f>;
-			qcom,msm-gpios = "wsa_clk",
-					"wsa_reset",
-					"wsa_vi";
-			qcom,pinctrl-names = "all_off",
-					"wsa_clk",
-					"wsa_active",
-					"wsa_clk_active",
-					"wsa_vi",
-					"wsa_clk_vi",
-					"wsa_active_vi",
-					"wsa_all";
-			pinctrl-names = "all_off",
-					"wsa_clk",
-					"wsa_active",
-					"wsa_clk_active",
-					"wsa_vi",
-					"wsa_clk_vi",
-					"wsa_active_vi",
-					"wsa_all";
-			pinctrl-0 = <&wsa_clk_off &wsa_spkr_sd_sus &wsa_vi_sus>;
-			pinctrl-1 = <&wsa_clk_on &wsa_spkr_sd_sus &wsa_vi_sus>;
-			pinctrl-2 = <&wsa_clk_off &wsa_spkr_sd_act &wsa_vi_sus>;
-			pinctrl-3 = <&wsa_clk_on &wsa_spkr_sd_act &wsa_vi_sus>;
-			pinctrl-4 = <&wsa_clk_off &wsa_spkr_sd_sus &wsa_vi_act>;
-			pinctrl-5 = <&wsa_clk_on &wsa_spkr_sd_sus &wsa_vi_act>;
-			pinctrl-6 = <&wsa_clk_off &wsa_spkr_sd_act &wsa_vi_act>;
-			pinctrl-7 = <&wsa_clk_on &wsa_spkr_sd_act &wsa_vi_act>;
+			qcom,wsa-analog-vi-gpio = <&wsa881x_analog_vi_gpio>;
+			qcom,wsa-analog-clk-gpio = <&wsa881x_analog_clk_gpio>;
+			qcom,wsa-analog-reset-gpio =
+				<&wsa881x_analog_reset_gpio>;
 		};
-
-		wsa881x-i2c-codec@45 {
+		wsa881x_i2c_45: wsa881x-i2c-codec@45 {
+			status = "okay";
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x45>;
 		};
+	};
+
+	wsa881x_analog_vi_gpio: wsa881x_analog_vi_pctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wsa_vi_act>;
+		pinctrl-1 = <&wsa_vi_sus>;
+	};
+	wsa881x_analog_clk_gpio: wsa881x_analog_clk_pctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wsa_clk_on>;
+		pinctrl-1 = <&wsa_clk_off>;
+	};
+	wsa881x_analog_reset_gpio: wsa881x_analog_reset_pctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wsa_spkr_sd_act>;
+		pinctrl-1 = <&wsa_spkr_sd_sus>;
 	};
 };
 

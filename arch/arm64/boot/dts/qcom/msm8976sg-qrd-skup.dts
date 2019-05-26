@@ -66,16 +66,7 @@
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
-		qcom,msm-gpios =
-			"pri_i2s";
-		qcom,pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
-		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&voice_svc>;
@@ -109,8 +100,15 @@
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>, <&pm8950_cajon_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec";
+	};
+
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
 	};
 };
 
