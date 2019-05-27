@@ -14,6 +14,10 @@ obj-$(CONFIG_SND_SOC_BG_8909) += snd-soc-bg-8909.o
 snd-soc-8909-dig-cdc-objs := msm8909.o
 obj-$(CONFIG_SND_SOC_8909_DIG_CDC) += snd-soc-8909-dig-cdc.o
 
+# for MSM8952 sound card driver
+snd-soc-msm8952-objs := msm8952.o msm8952-slimbus.o msm8952-dai-links.o voice_svc.o
+obj-$(CONFIG_SND_SOC_MSM8952) += snd-soc-msm8952.o
+
 # for SDM450 internal codec sound card driver
 snd-soc-sdm450-objs := msm8952.o
 obj-$(CONFIG_SND_SOC_SDM450) += snd-soc-sdm450.o
