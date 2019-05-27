@@ -1886,7 +1886,7 @@ struct miscdevice rtac_misc = {
 	.fops	= &rtac_fops,
 };
 
-int __init rtac_init(void)
+static int __init rtac_init(void)
 {
 	int i = 0;
 
@@ -1969,14 +1969,7 @@ nomem:
 	return -ENOMEM;
 }
 
-void rtac_exit(void)
-{
-	misc_deregister(&rtac_misc);
-	kzfree(rtac_adm_buffer);
-	kzfree(rtac_asm_buffer);
-	kzfree(rtac_afe_buffer);
-	kzfree(rtac_voice_buffer);
-}
+module_init(rtac_init);
 
 MODULE_DESCRIPTION("SoC QDSP6v2 Real-Time Audio Calibration driver");
 MODULE_LICENSE("GPL v2");

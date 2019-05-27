@@ -538,15 +538,17 @@ static struct platform_driver msm_dai_q6_hdmi_driver = {
 	},
 };
 
-int __init msm_dai_q6_hdmi_init(void)
+static int __init msm_dai_q6_hdmi_init(void)
 {
 	return platform_driver_register(&msm_dai_q6_hdmi_driver);
 }
+module_init(msm_dai_q6_hdmi_init);
 
-void msm_dai_q6_hdmi_exit(void)
+static void __exit msm_dai_q6_hdmi_exit(void)
 {
 	platform_driver_unregister(&msm_dai_q6_hdmi_driver);
 }
+module_exit(msm_dai_q6_hdmi_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("MSM DSP HDMI DAI driver");

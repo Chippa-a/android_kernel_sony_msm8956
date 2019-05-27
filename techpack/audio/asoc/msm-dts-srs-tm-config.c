@@ -18,9 +18,10 @@
 #include <linux/atomic.h>
 #include <sound/asound.h>
 #include <sound/control.h>
+#include <asoc/msm-dts-srs-tm-config.h>
 #include <dsp/msm_audio_ion.h>
 #include <dsp/q6adm-v2.h>
-#include <dsp/msm-dts-srs-tm-config.h>
+#include "msm-pcm-routing-v2.h"
 
 static int srs_port_id[AFE_MAX_PORTS] = {-1};
 static int srs_copp_idx[AFE_MAX_PORTS] = {-1};
@@ -141,10 +142,10 @@ static int msm_dts_srs_trumedia_control_set(struct snd_kcontrol *kcontrol,
 	int ret, port_id;
 
 	pr_debug("SRS control normal called\n");
-	msm_dts_srs_acquire_lock();
+	msm_pcm_routing_acquire_lock();
 	port_id = SLIMBUS_0_RX;
 	ret = msm_dts_srs_trumedia_control_set_(port_id, kcontrol, ucontrol);
-	msm_dts_srs_release_lock();
+	msm_pcm_routing_release_lock();
 	return ret;
 }
 
@@ -154,10 +155,10 @@ static int msm_dts_srs_trumedia_control_i2s_set(struct snd_kcontrol *kcontrol,
 	int ret, port_id;
 
 	pr_debug("SRS control I2S called\n");
-	msm_dts_srs_acquire_lock();
+	msm_pcm_routing_acquire_lock();
 	port_id = PRIMARY_I2S_RX;
 	ret = msm_dts_srs_trumedia_control_set_(port_id, kcontrol, ucontrol);
-	msm_dts_srs_release_lock();
+	msm_pcm_routing_release_lock();
 	return ret;
 }
 
@@ -167,10 +168,10 @@ static int msm_dts_srs_trumedia_control_mi2s_set(struct snd_kcontrol *kcontrol,
 	int ret, port_id;
 
 	pr_debug("SRS control MI2S called\n");
-	msm_dts_srs_acquire_lock();
+	msm_pcm_routing_acquire_lock();
 	port_id = AFE_PORT_ID_PRIMARY_MI2S_RX;
 	ret = msm_dts_srs_trumedia_control_set_(port_id, kcontrol, ucontrol);
-	msm_dts_srs_release_lock();
+	msm_pcm_routing_release_lock();
 	return ret;
 }
 
@@ -180,10 +181,10 @@ static int msm_dts_srs_trumedia_control_hdmi_set(struct snd_kcontrol *kcontrol,
 	int ret, port_id;
 
 	pr_debug("SRS control HDMI called\n");
-	msm_dts_srs_acquire_lock();
+	msm_pcm_routing_acquire_lock();
 	port_id = HDMI_RX;
 	ret = msm_dts_srs_trumedia_control_set_(port_id, kcontrol, ucontrol);
-	msm_dts_srs_release_lock();
+	msm_pcm_routing_release_lock();
 	return ret;
 }
 

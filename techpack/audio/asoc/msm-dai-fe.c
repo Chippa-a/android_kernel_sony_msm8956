@@ -2774,15 +2774,17 @@ static struct platform_driver msm_fe_dai_driver = {
 	},
 };
 
-int __init msm_fe_dai_init(void)
+static int __init msm_fe_dai_init(void)
 {
 	return platform_driver_register(&msm_fe_dai_driver);
 }
+module_init(msm_fe_dai_init);
 
-void msm_fe_dai_exit(void)
+static void __exit msm_fe_dai_exit(void)
 {
 	platform_driver_unregister(&msm_fe_dai_driver);
 }
+module_exit(msm_fe_dai_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("MSM Frontend DAI driver");

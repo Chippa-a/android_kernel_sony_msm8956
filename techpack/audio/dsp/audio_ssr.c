@@ -11,9 +11,12 @@
  */
 
 #include <linux/module.h>
+#include <soc/qcom/scm.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include "audio_ssr.h"
+
+#define SCM_Q6_NMI_CMD 0x1
 
 static char *audio_ssr_domains[] = {
 	"adsp",
@@ -57,3 +60,25 @@ int audio_ssr_deregister(void *handle, struct notifier_block *nb)
 }
 EXPORT_SYMBOL(audio_ssr_deregister);
 
+void audio_ssr_send_nmi(void *ssr_cb_data)
+{
+	struct notif_data *data = (struct notif_data *)ssr_cb_data;
+	struct scm_desc desc;
+
+	if (data && data->crashed) {
+		/* Send NMI to QDSP6 via an SCM call. */
+		if (!is_scm_armv8()) {
+			scm_call_atomic1(SCM_SVC_UTIL,
+					 SCM_Q6_NMI_CMD, 0x1);
+		} else {
+			desc.args[0] = 0x1;
+			desc.arginfo = SCM_ARGS(1);
+			scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_UTIL,
+					 SCM_Q6_NMI_CMD), &desc);
+		}
+		/* The write should go through before q6 is shutdown */
+		mb();
+		pr_debug("%s: Q6 NMI was sent.\n", __func__);
+	}
+}
+EXPORT_SYMBOL(audio_ssr_send_nmi);

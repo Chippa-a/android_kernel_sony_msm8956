@@ -595,7 +595,6 @@ done:
 }
 EXPORT_SYMBOL(apr_register);
 
-
 void apr_cb_func(void *buf, int len, void *priv)
 {
 	struct apr_client_data data;
@@ -1124,8 +1123,6 @@ static void apr_cleanup(void)
 {
 	int i, j, k;
 
-	subsys_notif_deregister("apr_modem");
-	subsys_notif_deregister("apr_adsp");
 	if (apr_reset_workqueue)
 		destroy_workqueue(apr_reset_workqueue);
 	mutex_destroy(&q6.lock);
@@ -1203,14 +1200,14 @@ static int __init apr_init(void)
 	apr_dummy_init();
 	return 0;
 }
-module_init(apr_init);
+device_initcall(apr_init);
 
 static void __exit apr_exit(void)
 {
 	apr_dummy_exit();
 	platform_driver_unregister(&apr_driver);
 }
-module_exit(apr_exit);
+__exitcall(apr_exit);
 
 MODULE_DESCRIPTION("APR DRIVER");
 MODULE_LICENSE("GPL v2");

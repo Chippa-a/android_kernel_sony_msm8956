@@ -767,15 +767,11 @@ struct miscdevice audio_effects_misc = {
 	.fops = &audio_effects_fops,
 };
 
-int __init audio_effects_init(void)
+static int __init audio_effects_init(void)
 {
 	return misc_register(&audio_effects_misc);
 }
 
-void audio_effects_exit(void)
-{
-	misc_deregister(&audio_effects_misc);
-}
-
+device_initcall(audio_effects_init);
 MODULE_DESCRIPTION("Audio hardware accelerated effects driver");
 MODULE_LICENSE("GPL v2");

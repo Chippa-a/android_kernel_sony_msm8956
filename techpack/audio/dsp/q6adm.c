@@ -18,7 +18,7 @@
 #include <linux/atomic.h>
 #include <linux/wait.h>
 #include <sound/asound.h>
-#include <dsp/msm-dts-srs-tm-config.h>
+#include <asoc/msm-dts-srs-tm-config.h>
 #include <dsp/apr_audio-v2.h>
 #include <dsp/q6adm-v2.h>
 #include <dsp/q6audio-v2.h>
@@ -139,17 +139,6 @@ static struct adm_multi_ch_map port_channel_map[AFE_MAX_PORTS];
 static int adm_get_parameters[MAX_COPPS_PER_PORT * ADM_GET_PARAMETER_LENGTH];
 static int adm_module_topo_list[
 	MAX_COPPS_PER_PORT * ADM_GET_TOPO_MODULE_LIST_LENGTH];
-static struct mutex dts_srs_lock;
-
-void msm_dts_srs_acquire_lock(void)
-{
-	mutex_lock(&dts_srs_lock);
-}
-
-void msm_dts_srs_release_lock(void)
-{
-	mutex_unlock(&dts_srs_lock);
-}
 
 /**
  * adm_validate_and_get_port_index -
@@ -5800,7 +5789,7 @@ done:
 }
 EXPORT_SYMBOL(adm_get_source_tracking);
 
-int __init adm_init(void)
+static int __init adm_init(void)
 {
 	int i = 0, j;
 
@@ -5849,15 +5838,16 @@ int __init adm_init(void)
 	this_adm.sourceTrackingData.apr_cmd_status = -1;
 	atomic_set(&this_adm.mem_map_handles[ADM_MEM_MAP_INDEX_SOURCE_TRACKING],
 		   0);
-	mutex_init(&dts_srs_lock);
 
 	return 0;
 }
 
-void adm_exit(void)
+static void __exit adm_exit(void)
 {
 	if (this_adm.apr)
 		adm_reset_data();
-	mutex_destroy(&dts_srs_lock);
 	adm_delete_cal_data();
 }
+
+device_initcall(adm_init);
+module_exit(adm_exit);

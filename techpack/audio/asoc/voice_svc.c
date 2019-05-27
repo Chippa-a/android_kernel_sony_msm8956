@@ -867,19 +867,23 @@ static struct platform_driver voice_svc_driver = {
 	},
 };
 
-int __init voice_svc_init(void)
+static int __init voice_svc_init(void)
+
 {
 	pr_debug("%s\n", __func__);
 
 	return platform_driver_register(&voice_svc_driver);
 }
 
-void __exit voice_svc_exit(void)
+static void __exit voice_svc_exit(void)
 {
 	pr_debug("%s\n", __func__);
 
 	platform_driver_unregister(&voice_svc_driver);
 }
+
+module_init(voice_svc_init);
+module_exit(voice_svc_exit);
 
 MODULE_DESCRIPTION("Soc QDSP6v2 Voice Service driver");
 MODULE_LICENSE("GPL v2");

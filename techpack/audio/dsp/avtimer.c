@@ -559,7 +559,7 @@ static struct platform_driver dev_avtimer_driver = {
 	},
 };
 
-int  __init avtimer_init(void)
+static int  __init avtimer_init(void)
 {
 	s32 rc;
 
@@ -577,10 +577,14 @@ error_platform_driver:
 	return rc;
 }
 
-void avtimer_exit(void)
+static void __exit avtimer_exit(void)
 {
+	pr_debug("%s: avtimer_exit\n", __func__);
 	platform_driver_unregister(&dev_avtimer_driver);
 }
+
+module_init(avtimer_init);
+module_exit(avtimer_exit);
 
 MODULE_DESCRIPTION("avtimer driver");
 MODULE_LICENSE("GPL v2");

@@ -4773,15 +4773,17 @@ static struct platform_driver msm_compr_driver = {
 	.remove = msm_compr_dev_remove,
 };
 
-int __init msm_compress_dsp_init(void)
+static int __init msm_soc_platform_init(void)
 {
 	return platform_driver_register(&msm_compr_driver);
 }
+module_init(msm_soc_platform_init);
 
-void msm_compress_dsp_exit(void)
+static void __exit msm_soc_platform_exit(void)
 {
 	platform_driver_unregister(&msm_compr_driver);
 }
+module_exit(msm_soc_platform_exit);
 
 MODULE_DESCRIPTION("Compress Offload platform driver");
 MODULE_LICENSE("GPL v2");

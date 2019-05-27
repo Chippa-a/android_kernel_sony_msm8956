@@ -11252,7 +11252,7 @@ static int q6asm_is_valid_session(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-int __init q6asm_init(void)
+static int __init q6asm_init(void)
 {
 	int lcnt, ret;
 
@@ -11294,7 +11294,10 @@ int __init q6asm_init(void)
 	return 0;
 }
 
-void q6asm_exit(void)
+static void __exit q6asm_exit(void)
 {
 	q6asm_delete_cal_data();
 }
+
+device_initcall(q6asm_init);
+__exitcall(q6asm_exit);

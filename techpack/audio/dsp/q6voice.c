@@ -9782,7 +9782,7 @@ static void voc_release_uevent_data(struct kobject *kobj)
 	kfree(data);
 }
 
-int __init voice_init(void)
+static int __init voice_init(void)
 {
 	int rc = 0, i = 0;
 
@@ -9894,10 +9894,13 @@ int __init voice_init(void)
 	return rc;
 }
 
+device_initcall(voice_init);
 
-void voice_exit(void)
+static void __exit voice_exit(void)
 {
 	q6core_destroy_uevent_data(common.uevent_data);
 	voice_delete_cal_data();
 	free_cal_map_table();
 }
+
+__exitcall(voice_exit);

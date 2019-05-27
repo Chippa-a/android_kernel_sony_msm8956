@@ -9622,7 +9622,7 @@ static struct platform_driver msm_dai_q6_tdm_driver = {
 	},
 };
 
-int __init msm_dai_q6_init(void)
+static int __init msm_dai_q6_init(void)
 {
 	int rc;
 
@@ -9692,8 +9692,9 @@ dai_q6_fail:
 fail:
 	return rc;
 }
+module_init(msm_dai_q6_init);
 
-void msm_dai_q6_exit(void)
+static void __exit msm_dai_q6_exit(void)
 {
 	platform_driver_unregister(&msm_dai_tdm_q6);
 	platform_driver_unregister(&msm_dai_q6_tdm_driver);
@@ -9704,6 +9705,7 @@ void msm_dai_q6_exit(void)
 	platform_driver_unregister(&msm_dai_q6);
 	platform_driver_unregister(&msm_auxpcm_dev_driver);
 }
+module_exit(msm_dai_q6_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("MSM DSP DAI driver");

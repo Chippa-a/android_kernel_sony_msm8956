@@ -1305,7 +1305,7 @@ err:
 	return ret;
 }
 
-int __init core_init(void)
+static int __init core_init(void)
 {
 	memset(&q6core_lcl, 0, sizeof(struct q6core_str));
 	init_waitqueue_head(&q6core_lcl.bus_bw_req_wait);
@@ -1320,13 +1320,15 @@ int __init core_init(void)
 
 	return 0;
 }
+module_init(core_init);
 
-void core_exit(void)
+static void __exit core_exit(void)
 {
 	mutex_destroy(&q6core_lcl.cmd_lock);
 	mutex_destroy(&q6core_lcl.ver_lock);
 	q6core_delete_cal_data();
 	q6core_destroy_uevent_kset();
 }
+module_exit(core_exit);
 MODULE_DESCRIPTION("ADSP core driver");
 MODULE_LICENSE("GPL v2");

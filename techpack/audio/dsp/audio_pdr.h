@@ -41,7 +41,6 @@ enum {
  *          Failure: Error code
  */
 int audio_pdr_register(struct notifier_block *nb);
-int audio_pdr_deregister(struct notifier_block *nb);
 
 /*
  * Use audio_pdr_service_register to register with a PDR service
