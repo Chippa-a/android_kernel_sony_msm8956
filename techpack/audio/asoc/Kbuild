@@ -126,8 +126,15 @@ ifdef CONFIG_SND_SOC_MSM8909
 	MACHINE_INT_OBJS += msm8952.o
 endif
 
-# For MSM8909 only add voice svc driver
-ifdef CONFIG_SND_SOC_MSM8909
+# for MSM8952 sound card driver
+ifdef CONFIG_SND_SOC_MSM8952
+	MACHINE_OBJS += msm8952.o
+	MACHINE_OBJS += msm8952-slimbus.o
+	MACHINE_OBJS += msm8952-dai-links.o
+endif
+
+# For MSM8909 and MSM8952 add voice svc driver
+ifneq ($(filter y m,$(CONFIG_SND_SOC_MSM8909) $(CONFIG_SND_SOC_MSM8952)),)
 	PLATFORM_OBJS += voice_svc.o
 endif
 
@@ -230,6 +237,9 @@ endif
 # Module information used by KBuild framework
 obj-$(CONFIG_SND_SOC_QDSP6V2) += platform_dlkm.o
 platform_dlkm-y := $(PLATFORM_OBJS)
+
+obj-$(CONFIG_SND_SOC_MSM8952) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
 
 obj-$(CONFIG_SND_SOC_SDM450) += machine_dlkm.o
 machine_dlkm-y := $(MACHINE_OBJS)
