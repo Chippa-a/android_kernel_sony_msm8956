@@ -233,44 +233,6 @@
 		#interrupt-cells = <2>;
 	};
 
-	qcom,msm-imem@8600000 {
-		compatible = "qcom,msm-imem";
-		reg = <0x08600000 0x1000>; /* Address and size of IMEM */
-		ranges = <0x0 0x08600000 0x1000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		mem_dump_table@10 {
-			compatible = "qcom,msm-imem-mem_dump_table";
-			reg = <0x10 8>;
-		};
-
-		restart_reason@65c {
-			compatible = "qcom,msm-imem-restart_reason";
-			reg = <0x65c 4>;
-		};
-
-		boot_stats@6b0 {
-			compatible = "qcom,msm-imem-boot_stats";
-			reg = <0x6b0 32>;
-		};
-
-		kaslr_offset@6d0 {
-			compatible = "qcom,msm-imem-kaslr_offset";
-			reg = <0x6d0 12>;
-		};
-
-		pil@94c {
-			compatible = "qcom,msm-imem-pil";
-			reg = <0x94c 200>;
-		};
-
-		diag_dload@c8 {
-			compatible = "qcom,msm-imem-diag-dload";
-			reg = <0xc8 200>;
-		};
-	};
-
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-8976";
 		reg = <0x1800000 0x80000>;
@@ -1419,6 +1381,21 @@
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
+		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
 		};
 	};
 
