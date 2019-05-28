@@ -18,9 +18,10 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8976";
+	model = "Qualcomm Technologies, Inc. MSM8976";
 	compatible = "qcom,msm8976";
 	qcom,msm-id = <278 0x0>;
+	qcom,msm-name = "MSM8976";
 	interrupt-parent = <&wakegic>;
 
 	chosen {
