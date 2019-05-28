@@ -57,20 +57,17 @@
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
-		i2c2  = &i2c_2;
-		i2c4  = &i2c_4;
-		i2c6  = &i2c_6;
-		i2c8  = &i2c_8;
-	};
-
-	soc: soc { };
-
-	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		sdhc3 = &sdhc_3; /* SDC3 SDIO card slot */
+		i2c2 = &i2c_2;
+		i2c4 = &i2c_4;
+		i2c6 = &i2c_6;
+		i2c8 = &i2c_8;
 		spi0 = &spi_0;
 	};
+
+	soc: soc { };
 
 	reserved-memory {
 		#address-cells = <2>;
