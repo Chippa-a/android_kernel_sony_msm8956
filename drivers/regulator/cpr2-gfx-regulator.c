@@ -2083,7 +2083,7 @@ static int cpr_pvs_init(struct cpr2_gfx_regulator *cpr_vreg)
 	struct device_node *of_node = cpr_vreg->dev->of_node;
 	u64 efuse_bits;
 	int i, size, sign, steps, step_size_uv, rc, pos;
-	u32 *fuse_sel, *tmp, *ref_uv;
+	u32 *fuse_sel, *tmp = 0, *ref_uv;
 	struct property *prop;
 	size_t buflen;
 	char *buf;
@@ -2476,7 +2476,7 @@ static int cpr_adjust_target_quotients(struct cpr2_gfx_regulator *cpr_vreg)
 {
 	struct device_node *of_node = cpr_vreg->dev->of_node;
 	int i, j, len, size, sign, steps, voltage_adjust, rc;
-	u32 *fuse_sel, *tmp, *ro_scale;
+	u32 *fuse_sel, *tmp = 0, *ro_scale;
 	char *prop_str;
 	u64 efuse_bits;
 	u32 step_size_uv;
@@ -2732,7 +2732,7 @@ static int cpr_aging_init(struct cpr2_gfx_regulator *cpr_vreg)
 	struct cpr2_gfx_aging_sensor_info *sensor_info;
 	int num_corners = cpr_vreg->num_corners;
 	int i, j, rc = 0, len = 0, num_aging_sensors, bits, pos = 0;
-	u32 *aging_sensor_id, *fuse_sel, *fuse_sel_orig;
+	u32 *aging_sensor_id, *fuse_sel, *fuse_sel_orig = 0;
 	u32 sensor = 0, non_collapsible_sensor_mask = 0;
 	u64 efuse_val;
 	struct property *prop;
