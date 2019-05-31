@@ -312,18 +312,7 @@ static struct platform_driver ldo_vibrator_driver = {
 	.remove = ldo_vibrator_remove,
 };
 
-static int __init ldo_vibrator_init(void)
-{
-	return platform_driver_register(&ldo_vibrator_driver);
-}
-
-static void __exit ldo_vibrator_exit(void)
-{
-	platform_driver_unregister(&ldo_vibrator_driver);
-}
-
-module_init(ldo_vibrator_init);
-module_exit(ldo_vibrator_exit);
+module_platform_driver(ldo_vibrator_driver);
 
 MODULE_DESCRIPTION("LDO vibrator driver");
 MODULE_AUTHOR("Atsushi Iyogi");
