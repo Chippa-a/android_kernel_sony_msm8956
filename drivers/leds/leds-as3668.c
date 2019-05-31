@@ -2851,21 +2851,8 @@ static struct i2c_driver as3668_driver = {
 	.id_table = as3668_id,
 };
 
-static int __init as3668_init(void)
-{
-	return i2c_add_driver(&as3668_driver);
-}
-
-static void __exit as3668_exit(void)
-{
-	i2c_del_driver(&as3668_driver);
-}
-
+module_i2c_driver(as3668_driver);
 
 MODULE_AUTHOR("Florian Lobmaier <florian.lobmaier@austriamicrosystems.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("AS3668 LED light");
-
-module_init(as3668_init);
-module_exit(as3668_exit);
-
