@@ -2661,23 +2661,6 @@ static void fusb301_shutdown(struct i2c_client *client)
 		dev_err(cdev, "%s: failed to set sink mode\n", __func__);
 }
 
-#ifdef CONFIG_PM
-static int fusb301_suspend(struct device *dev)
-{
-	return 0;
-}
-
-static int fusb301_resume(struct device *dev)
-{
-	return 0;
-}
-
-static const struct dev_pm_ops fusb301_dev_pm_ops = {
-	.suspend = fusb301_suspend,
-	.resume  = fusb301_resume,
-};
-#endif
-
 static const struct i2c_device_id fusb301_id_table[] = {
 	{"fusb301", 0},
 	{},
@@ -2698,9 +2681,6 @@ static struct i2c_driver fusb301_i2c_driver = {
 		.name = "fusb301",
 		.owner = THIS_MODULE,
 		.of_match_table = fusb301_match_table,
-#ifdef CONFIG_PM
-		.pm = &fusb301_dev_pm_ops,
-#endif
 	},
 	.probe = fusb301_probe,
 	.remove = fusb301_remove,
