@@ -9607,10 +9607,9 @@ static int clearpad_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct dev_pm_ops clearpad_pm = {
-	.suspend = clearpad_pm_suspend,
-	.resume = clearpad_pm_resume,
-};
+static SIMPLE_DEV_PM_OPS(clearpad_pm,
+			clearpad_pm_suspend,
+			clearpad_pm_resume);
 
 static struct platform_driver clearpad_driver = {
 	.driver = {
