@@ -35,7 +35,6 @@
 #include <linux/sched.h>
 #include <linux/time.h>
 #include <linux/timer.h>
-#include <linux/wakelock.h>
 #ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -88,7 +87,6 @@
 #define HWTEST_MAX_DIGITS			10
 #define HWLOG_BUF_SIZE				(PAGE_SIZE * 10)
 #define SYN_WAKEUP_GESTURE			"wakeup_gesture"
-#define WAKE_LOCK_ID				"touchctrl"
 #define INDENT					"        "
 #define FLASH_DATA_CONFIGURATION_AREA_SELECT_PERM	1
 #define FLASH_DATA_CONFIGURATION_AREA_SELECT_SHIFT	13
@@ -586,7 +584,6 @@ struct clearpad_thread_resume_t {
 };
 
 struct clearpad_touchctrl_t {
-	struct wake_lock wakelock;
 	struct clearpad_lock_t session_lock;
 	const char *session;
 	int power_user; /* reference counter */
@@ -1416,7 +1413,7 @@ static int clearpad_ctrl_session_begin(struct clearpad_t *this,
 	struct clearpad_touchctrl_t *touchctrl = &this->touchctrl;
 	int rc = 0;
 
-	wake_lock(&touchctrl->wakelock);
+	pm_stay_awake(&this->pdev->dev);
 	LOCK(&touchctrl->session_lock);
 	LOGI(this, "begin '%s' session\n", session);
 	touchctrl->session = session;
@@ -1445,7 +1442,7 @@ err_in_lock_power:
 	UNLOCK(&this->lock);
 	touchctrl->session = NULL;
 	UNLOCK(&touchctrl->session_lock);
-	wake_unlock(&touchctrl->wakelock);
+	pm_relax(&this->pdev->dev);
 end:
 	return rc;
 }
@@ -1470,7 +1467,7 @@ static void clearpad_ctrl_session_end(struct clearpad_t *this,
 	LOGI(this, "end '%s' session\n", session);
 	touchctrl->session = NULL;
 	UNLOCK(&touchctrl->session_lock);
-	wake_unlock(&touchctrl->wakelock);
+	pm_relax(&this->pdev->dev);
 }
 
 /*
@@ -9182,7 +9179,6 @@ static int clearpad_probe(struct platform_device *pdev)
 
 	touchctrl = &this->touchctrl;
 	mutex_init(&touchctrl->session_lock.lock);
-	wake_lock_init(&touchctrl->wakelock, WAKE_LOCK_SUSPEND, WAKE_LOCK_ID);
 
 	atomic_set(&this->interrupt.for_reset.done, 0);
 	init_waitqueue_head(&this->interrupt.for_reset.wq);
@@ -9585,10 +9581,7 @@ static int clearpad_remove(struct platform_device *pdev)
 	struct clearpad_data_t *cdata = pdev->dev.platform_data;
 #endif
 	struct clearpad_t *this = dev_get_drvdata(&pdev->dev);
-	struct clearpad_touchctrl_t *touchctrl = &this->touchctrl;
 	char *symlink_name = this->pdata->symlink_name ? : CLEARPAD_NAME;
-
-	wake_lock_destroy(&touchctrl->wakelock);
 
 	cancel_delayed_work_sync(&this->watchdog.work);
 	cancel_delayed_work_sync(&this->reset.work);
