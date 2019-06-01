@@ -30,7 +30,7 @@
 #define SYN_PCA_BLOCK_SIZE		16
 #define SYN_PCA_BLOCK_NUMBER_MAX	31
 
-/* #define CLEARPAD_WAKEUP_GESTURE */
+#define CLEARPAD_WAKEUP_GESTURE
 
 enum clearpad_funcarea_kind_e {
 	SYN_FUNCAREA_INSENSIBLE,
