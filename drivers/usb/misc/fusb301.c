@@ -2708,18 +2708,7 @@ static struct i2c_driver fusb301_i2c_driver = {
 	.id_table = fusb301_id_table,
 };
 
-static __init int fusb301_i2c_init(void)
-{
-	return i2c_add_driver(&fusb301_i2c_driver);
-}
-
-static __exit void fusb301_i2c_exit(void)
-{
-	i2c_del_driver(&fusb301_i2c_driver);
-}
-
-module_init(fusb301_i2c_init);
-module_exit(fusb301_i2c_exit);
+module_i2c_driver(fusb301_i2c_driver);
 
 MODULE_AUTHOR("jude84.kim@lge.com");
 MODULE_DESCRIPTION("I2C bus driver for fusb301 USB Type-C");
