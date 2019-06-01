@@ -567,17 +567,6 @@ static struct platform_driver bu520x1nvx_driver = {
 	},
 };
 
-static int __init bu520x1nvx_init(void)
-{
-	return platform_driver_register(&bu520x1nvx_driver);
-}
-
-static void __exit bu520x1nvx_exit(void)
-{
-	platform_driver_unregister(&bu520x1nvx_driver);
-}
-
-module_init(bu520x1nvx_init);
-module_exit(bu520x1nvx_exit);
+module_platform_driver(bu520x1nvx_driver);
 
 MODULE_LICENSE("GPL v2");
