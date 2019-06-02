@@ -9,6 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -88,6 +93,11 @@
 #define QPNP_PON_PS_HOLD_RST_CTL2(pon)		((pon)->base + 0x5B)
 #define QPNP_PON_WD_RST_S2_CTL(pon)		((pon)->base + 0x56)
 #define QPNP_PON_WD_RST_S2_CTL2(pon)		((pon)->base + 0x57)
+#ifdef CONFIG_PON_SOMC_ORG
+#define QPNP_PON_SW_RESET_S2_CTL(pon)		((pon)->base + 0x62)
+#define QPNP_PON_SW_RESET_S2_CTL2(pon)		((pon)->base + 0x63)
+#define QPNP_PON_SW_RESET_GO(pon)		((pon)->base + 0x64)
+#endif /* CONFIG_PON_SOMC_ORG */
 #define QPNP_PON_S3_SRC(pon)			((pon)->base + 0x74)
 #define QPNP_PON_S3_DBC_CTL(pon)		((pon)->base + 0x75)
 #define QPNP_PON_SMPL_CTL(pon)			((pon)->base + 0x7F)
@@ -95,6 +105,9 @@
 #define QPNP_PON_XVDD_RB_SPARE(pon)		((pon)->base + 0x8E)
 #define QPNP_PON_SOFT_RB_SPARE(pon)		((pon)->base + 0x8F)
 #define QPNP_PON_SEC_ACCESS(pon)		((pon)->base + 0xD0)
+#ifdef CONFIG_PON_SOMC_ORG
+#define QPNP_PON_EN_UVLO(pon)			((pon)->base + 0xF2)
+#endif /* CONFIG_PON_SOMC_ORG */
 
 #define QPNP_PON_SEC_UNLOCK			0xA5
 
@@ -139,6 +152,19 @@
 #define QPNP_PON_UVLO_DLOAD_EN			BIT(7)
 #define QPNP_PON_SMPL_EN			BIT(7)
 
+#define QPNP_PON_DVDD_HARD_RESET_SET		0x08
+
+#ifdef CONFIG_PON_SOMC_ORG
+#define QPNP_PON_DVDD_SHUTDOWN_SET		0x05
+#define QPNP_PON_SW_RESET_EN_SET		0x80
+#define QPNP_PON_SW_RESET_GO_SET		0xA5
+#define QPNP_PON_DVDD_SHUTDOWN_MASK		0xFF
+#define QPNP_PON_SW_RESET_EN_MASK		0xFF
+#define QPNP_PON_SW_RESET_GO_MASK		0xFF
+#define QPNP_PON_EN_UVLO_VOL_THRESH		0xC0
+#define QPNP_PON_EN_UVLO_MASK			0xFE
+#endif /* CONFIG_PON_SOMC_ORG */
+
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX			10256
 #define QPNP_PON_S2_TIMER_MAX			2000
@@ -152,6 +178,8 @@
 #define QPNP_PON_GEN2_MAX_DBC_US		(USEC_PER_SEC / 4)
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
+#define QPNP_RESIN_STATUS_SHORT_DELAY	msecs_to_jiffies(1500)
+#define QPNP_RESIN_STATUS_LONG_DELAY	msecs_to_jiffies(9500)
 
 #define QPNP_PON_BUFFER_SIZE			9
 
@@ -204,6 +232,7 @@ struct qpnp_pon {
 	struct pon_regulator	*pon_reg_cfg;
 	struct list_head	list;
 	struct delayed_work	bark_work;
+	struct delayed_work	resin_status_work;
 	struct dentry		*debugfs;
 	struct device_node      *pbs_dev_node;
 	int			pon_trigger_reason;
@@ -244,6 +273,8 @@ module_param_named(
 );
 
 static struct qpnp_pon *sys_reset_dev;
+static struct qpnp_pon *sys_reset_dev_2;
+
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
 
@@ -312,6 +343,8 @@ static const char * const qpnp_poff_reason[] = {
 	[38] = "Triggered from S3_RESET_PBS_NACK",
 	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN (power key and/or reset line)",
 };
+
+static unsigned long resin_status_delay;
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -882,6 +915,44 @@ int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable)
 }
 EXPORT_SYMBOL(qpnp_pon_trigger_config);
 
+#ifdef CONFIG_PON_SOMC_ORG
+int qpnp_pon_dvdd_shutdown(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+
+	if (!pon)
+		return -EPROBE_DEFER;
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_SW_RESET_S2_CTL(pon),
+					QPNP_PON_DVDD_SHUTDOWN_MASK,
+					QPNP_PON_DVDD_SHUTDOWN_SET);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+			QPNP_PON_SW_RESET_S2_CTL(pon), rc);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_SW_RESET_S2_CTL2(pon),
+					QPNP_PON_SW_RESET_EN_MASK,
+					QPNP_PON_SW_RESET_EN_SET);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+			QPNP_PON_SW_RESET_S2_CTL2(pon), rc);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_SW_RESET_GO(pon),
+					QPNP_PON_SW_RESET_GO_MASK,
+					QPNP_PON_SW_RESET_GO_SET);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+			QPNP_PON_SW_RESET_GO(pon), rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_pon_dvdd_shutdown);
+#endif /* CONFIG_PON_SOMC_ORG */
+
 /*
  * This function stores the PMIC warm reset reason register values. It also
  * clears these registers if the qcom,clear-warm-reset device tree property
@@ -981,6 +1052,13 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
+
+	if (cfg->pon_type == PON_RESIN) {
+		if (key_status)
+			schedule_delayed_work(&pon->resin_status_work, resin_status_delay);
+		else
+			cancel_delayed_work_sync(&pon->resin_status_work);
+	}
 
 	if (pon->kpdpwr_dbc_enable && cfg->pon_type == PON_KPDPWR) {
 		if (!key_status)
@@ -1100,6 +1178,11 @@ static irqreturn_t qpnp_pmic_wd_bark_irq(int irq, void *_pon)
 	panic("PMIC Watch dog triggered");
 
 	return IRQ_HANDLED;
+}
+
+static void resin_status_work_func(struct work_struct *work)
+{
+	pr_info("$$$$ Stage 2 reset (RESIN) $$$$\n");
 }
 
 static void bark_work_func(struct work_struct *work)
@@ -1937,6 +2020,69 @@ static struct kernel_param_ops smpl_en_ops = {
 
 module_param_cb(smpl_en, &smpl_en_ops, &smpl_en, 0644);
 
+static bool resin_n_reset;
+
+static int qpnp_pon_debugfs_resin_n_get(char *buf,
+					const struct kernel_param *kp)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc = 0;
+	uint reg;
+
+	if (!pon)
+		return -ENODEV;
+
+ 	rc = regmap_read(pon->regmap, QPNP_PON_RESIN_S2_CNTL(pon), &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_RESIN_S2_CNTL(pon), rc);
+		return rc;
+	}
+	pr_debug("ctrl:%p add:%x sid:%u reg:0x%02x\n",
+ 		 to_spmi_device(pon->pdev->dev.parent)->ctrl, QPNP_PON_RESIN_S2_CNTL(pon),
+ 		 to_spmi_device(pon->pdev->dev.parent)->usid, reg);
+
+	return snprintf(buf, PAGE_SIZE, "Address 0x846:0x%02x", reg);
+}
+
+static int qpnp_pon_debugfs_resin_n_set(const char *val,
+					const struct kernel_param *kp)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc = 0;
+	u8 reg = PON_POWER_OFF_WARM_RESET;
+
+	if (!pon)
+		return -ENODEV;
+
+	rc = param_set_bool(val, kp);
+	if (rc) {
+		pr_err("Unable to set bms_reset: %d\n", rc);
+		return rc;
+	}
+
+	if (!*(bool *)kp->arg)
+		reg = QPNP_PON_DVDD_HARD_RESET_SET;
+
+	rc = regmap_write(pon->regmap, QPNP_PON_RESIN_S2_CNTL(pon), reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%hx, rc(%d)\n",
+			QPNP_PON_RESIN_S2_CNTL(pon), rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops resin_n_ops = {
+	.set = qpnp_pon_debugfs_resin_n_set,
+	.get = qpnp_pon_debugfs_resin_n_get,
+};
+
+module_param_cb(resin_n_reset, &resin_n_ops, &resin_n_reset, 0644);
+
 static bool dload_on_uvlo;
 
 static int qpnp_pon_debugfs_uvlo_dload_get(char *buf,
@@ -2006,6 +2152,76 @@ static struct kernel_param_ops dload_on_uvlo_ops = {
 };
 
 module_param_cb(dload_on_uvlo, &dload_on_uvlo_ops, &dload_on_uvlo, 0644);
+
+#ifdef CONFIG_PON_SOMC_ORG
+static int qpnp_pon_debugfs_enable_uvlo_get(char *buf,
+		const struct kernel_param *kp)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc = 0;
+	uint reg;
+
+	if (!pon)
+		return -ENODEV;
+
+ 	rc = regmap_read(pon->regmap, QPNP_PON_EN_UVLO(pon), &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_EN_UVLO(pon), rc);
+		return rc;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "0x%02x", reg);
+}
+
+static int qpnp_pon_debugfs_enable_uvlo_set(const char *val,
+		const struct kernel_param *kp)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc = 0;
+	uint reg;
+
+	if (!pon)
+		return -ENODEV;
+
+ 	rc = regmap_read(pon->regmap, QPNP_PON_EN_UVLO(pon), &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_EN_UVLO(pon), rc);
+		return rc;
+	}
+
+	reg &= ~QPNP_PON_EN_UVLO_MASK;
+	reg |= QPNP_PON_EN_UVLO_VOL_THRESH;
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_SEC_ACCESS(pon),
+				0xFF, QPNP_PON_SEC_UNLOCK);
+	if (rc) {
+		dev_err(&pon->pdev->dev, "Unable to do SEC_ACCESS rc:%d\n",
+			rc);
+		return rc;
+	}
+
+ 	rc = regmap_write(pon->regmap, QPNP_PON_EN_UVLO(pon), reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%hx, rc(%d)\n",
+				QPNP_PON_EN_UVLO(pon), rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops enable_uvlo_ops = {
+	.set = qpnp_pon_debugfs_enable_uvlo_set,
+	.get = qpnp_pon_debugfs_enable_uvlo_get,
+};
+
+module_param_cb(enable_uvlo, &enable_uvlo_ops, NULL, 0644);
+#endif /* CONFIG_PON_SOMC_ORG */
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -2164,6 +2380,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	u8 s3_src_reg;
 	unsigned long flags;
 	uint temp = 0;
+	uint pon_resin_timer;
 
 	pon = devm_kzalloc(&pdev->dev, sizeof(struct qpnp_pon), GFP_KERNEL);
 	if (!pon)
@@ -2227,6 +2444,25 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		pon->pon_cfg = devm_kzalloc(&pdev->dev,
 				sizeof(struct qpnp_pon_config) *
 				pon->num_pon_config, GFP_KERNEL);
+
+	/* RESIN S1 TIMER */
+	rc = regmap_read(pon->regmap, QPNP_PON_RESIN_S1_TIMER(pon), &pon_resin_timer);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to read RESIN_S1_TIMER\n");
+		return rc;
+	}
+
+	dev_err(&pdev->dev, "pon_resin_timer 0x%x\n", pon_resin_timer);
+	if (pon->num_pon_config) {
+		if (pon_resin_timer == 0xB)
+			resin_status_delay = QPNP_RESIN_STATUS_SHORT_DELAY;
+		else if (pon_resin_timer == 0xF)
+			resin_status_delay = QPNP_RESIN_STATUS_LONG_DELAY;
+		else {
+			dev_err(&pdev->dev, "invalid RESIN_S1_TIMER value\n");
+			resin_status_delay = QPNP_RESIN_STATUS_LONG_DELAY;
+		}
+	}
 
 	/* Read PON_PERPH_SUBTYPE register to get PON type */
 	rc = regmap_read(pon->regmap,
@@ -2297,6 +2533,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			"PMIC@SID%d Power-on reason: Unknown and '%s' boot\n",
 			to_spmi_device(pon->pdev->dev.parent)->usid,
 			 cold_boot ? "cold" : "warm");
+		if (to_spmi_device(pon->pdev->dev.parent)->usid == 2)
+			sys_reset_dev_2 = pon;
 	} else {
 		pon->pon_trigger_reason = index;
 		dev_info(&pon->pdev->dev,
@@ -2304,6 +2542,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			to_spmi_device(pon->pdev->dev.parent)->usid,
 			 qpnp_pon_reason[index],
 			cold_boot ? "cold" : "warm");
+		if (to_spmi_device(pon->pdev->dev.parent)->usid == 2)
+			sys_reset_dev_2 = pon;
 	}
 
 	/* POFF reason */
@@ -2417,6 +2657,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, pon);
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
+	INIT_DELAYED_WORK(&pon->resin_status_work, resin_status_work_func);
 
 	/* register the PON configurations */
 	rc = qpnp_pon_config_init(pon);
