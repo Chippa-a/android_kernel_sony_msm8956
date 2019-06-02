@@ -9,6 +9,11 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2016 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/err.h>
 #include <linux/sizes.h>
@@ -324,7 +329,7 @@ static int mmc_read_switch(struct mmc_card *card)
 	 * The argument does not matter, as the support bits do not
 	 * change with the arguments.
 	 */
-	err = mmc_sd_switch(card, 0, 0, 0, status);
+	err = mmc_sd_switch(card, 0, 0, 1, status);
 	if (err) {
 		/*
 		 * If the host or the card can't do the switch,
@@ -446,7 +451,11 @@ static void sd_update_bus_speed_mode(struct mmc_card *card)
 	if ((card->host->caps & MMC_CAP_UHS_SDR104) &&
 	    (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) &&
 	    (card->host->f_max > UHS_SDR104_MIN_DTR)) {
+#ifdef CONFIG_MMC_DISABLE_SD_SDR104
+		card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
+#else
 		card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
+#endif
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50)) && (card->sw_caps.sd3_bus_mode &
 		    SD_MODE_UHS_SDR50) &&

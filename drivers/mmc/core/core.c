@@ -10,6 +10,11 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -1183,6 +1188,24 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 
 	if (mmc_card_removed(host->card))
 		return -ENOMEDIUM;
+
+#ifdef CONFIG_MMC_CMD_DEBUG
+	if (host->card) {
+		struct mmc_cmdq *cq = NULL;
+		cq = &host->card->cmd_stats.cmdq[host->card->
+						cmd_stats.next_idx];
+		cq->opcode = mrq->cmd->opcode;
+		cq->arg = mrq->cmd->arg;
+		cq->flags = mrq->cmd->flags;
+		cq->timestamp = sched_clock();
+		host->card->cmd_stats.next_idx++;
+
+		if (host->card->cmd_stats.next_idx == CMD_QUEUE_SIZE) {
+			host->card->cmd_stats.next_idx = 0;
+			host->card->cmd_stats.wrapped = 1;
+		}
+	}
+#endif
 
 	if (mrq->sbc) {
 		pr_debug("<%s: starting CMD%u arg %08x flags %08x>\n",
@@ -2581,13 +2604,6 @@ void mmc_ungate_clock(struct mmc_host *host)
 		WARN_ON(host->ios.clock);
 		/* This call will also set host->clk_gated to false */
 		__mmc_set_clock(host, host->clk_old);
-		/*
-		 * We have seen that host controller's clock tuning circuit may
-		 * go out of sync if controller clocks are gated.
-		 * To workaround this issue, we are triggering retuning of the
-		 * tuning circuit after ungating the controller clocks.
-		 */
-		mmc_retune_needed(host);
 	}
 }
 
@@ -3211,7 +3227,10 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage, u32 ocr)
 
 	host->card_clock_off = false;
 	/* Wait for at least 1 ms according to spec */
-	mmc_delay(1);
+	if (!mmc_card_is_removable(host))
+		mmc_delay(1);
+	else
+		mmc_delay(40);
 
 	/*
 	 * Failure to switch is indicated by the card holding
@@ -4412,9 +4431,12 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 		if (!mmc_attach_sdio(host))
 			return 0;
 
-	if (!(host->caps2 & MMC_CAP2_NO_SD))
+	if (!(host->caps2 & MMC_CAP2_NO_SD)) {
 		if (!mmc_attach_sd(host))
 			return 0;
+		else
+			mmc_gpio_tray_close_set_uim2(host, 1);
+	}
 
 	if (!(host->caps2 & MMC_CAP2_NO_MMC))
 		if (!mmc_attach_mmc(host))
@@ -4617,6 +4639,8 @@ void mmc_stop_host(struct mmc_host *host)
 	host->rescan_disable = 1;
 	cancel_delayed_work_sync(&host->detect);
 
+	mmc_gpio_set_uim2_en(host, 0);
+
 	/* clear pm flags now and let card drivers set them as needed */
 	host->pm_flags = 0;
 
@@ -4775,6 +4799,9 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 		notify_block, struct mmc_host, pm_notify);
 	unsigned long flags;
 	int err = 0, present = 0;
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	bool pending_detect = false;
+#endif
 
 	switch (mode) {
 	case PM_RESTORE_PREPARE:
@@ -4785,7 +4812,15 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 		spin_lock_irqsave(&host->lock, flags);
 		host->rescan_disable = 1;
 		spin_unlock_irqrestore(&host->lock, flags);
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+		if (cancel_delayed_work_sync(&host->detect)) {
+			pending_detect = true;
+		}
+
+		mmc_cd_prepare_suspend(host, pending_detect);
+#else
 		cancel_delayed_work_sync(&host->detect);
+#endif
 
 		if (!host->bus_ops)
 			break;
@@ -4831,6 +4866,10 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 			break;
 		}
 		spin_unlock_irqrestore(&host->lock, flags);
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+		if (!mmc_cd_is_pending_detect(host))
+			break; /* IRQ should be triggered if CD changed */
+#endif
 		_mmc_detect_change(host, 0, false);
 
 	}
