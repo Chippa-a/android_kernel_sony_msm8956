@@ -917,4 +917,9 @@ config FPC1145_PLATFORM
 	help
 	  Select this module to enable FPC1145 tee finger print driver
 
+config PON_SOMC_ORG
+	bool "SoMC specific power on interface"
+	help
+	  This option enables SoMC specific power on interface.
+
 endif
