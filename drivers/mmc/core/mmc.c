@@ -421,7 +421,7 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			mmc_card_set_blockaddr(card);
 	}
 
-	card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
+	//card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
 	mmc_select_card_type(card);
 
@@ -618,8 +618,12 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	if (card->ext_csd.rev >= 6) {
 		card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
 
-		card->ext_csd.generic_cmd6_time = 10 *
-			ext_csd[EXT_CSD_GENERIC_CMD6_TIME];
+		if (card->cid.manfid == CID_MANFID_HYNIX) {
+			card->ext_csd.generic_cmd6_time = 100;
+		} else {
+			card->ext_csd.generic_cmd6_time = 10 *
+				ext_csd[EXT_CSD_GENERIC_CMD6_TIME];
+		}
 		card->ext_csd.power_off_longtime = 10 *
 			ext_csd[EXT_CSD_POWER_OFF_LONG_TIME];
 
@@ -643,8 +647,7 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			card->ext_csd.data_tag_unit_size = 0;
 		}
 
-		card->ext_csd.max_packed_writes =
-			ext_csd[EXT_CSD_MAX_PACKED_WRITES];
+		card->ext_csd.max_packed_writes = 8;
 		card->ext_csd.max_packed_reads =
 			ext_csd[EXT_CSD_MAX_PACKED_READS];
 	} else {
@@ -656,7 +659,7 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 * 8 but some eMMC devices can support it with rev 7. So handle
 		 * Enhance Strobe here.
 		 */
-		card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
+		//card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT];
 		card->ext_csd.fw_version = ext_csd[EXT_CSD_FIRMWARE_VERSION];
 		pr_info("%s: eMMC FW version: 0x%02x\n",
@@ -1509,7 +1512,7 @@ static int mmc_select_hs400es(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 
 	/* Controller enable enhanced strobe function */
-	host->ios.enhanced_strobe = true;
+	host->ios.enhanced_strobe = false;
 	if (host->ops->hs400_enhanced_strobe)
 		host->ops->hs400_enhanced_strobe(host, &host->ios);
 
@@ -2130,9 +2133,11 @@ reinit:
 	}
 
 	/*
-	 * Enable power_off_notification byte in the ext_csd register
+	 * If the host supports the power_off_notify capability then
+	 * set the notification byte in the ext_csd register of device
 	 */
-	if (card->ext_csd.rev >= 6) {
+	if ((host->caps2 & MMC_CAP2_FULL_PWR_CYCLE) &&
+	    (card->ext_csd.rev >= 6)) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_POWER_OFF_NOTIFICATION,
 				 EXT_CSD_POWER_ON,
