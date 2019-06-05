@@ -23,7 +23,6 @@
 #include <asm/segment.h>
 #include <asm/uaccess.h>
 #include <linux/buffer_head.h>
-#include <linux/wakelock.h>
 #include <linux/slab.h>
 #include <linux/power_supply.h>
 #include <linux/alarmtimer.h>
@@ -50,13 +49,13 @@ static struct alarm alarm;
 static bool alarm_inited = false;
 static int alarm_value = 0;
 
-static struct wake_lock wakelock;
-static bool wakelock_inited = false;
-static bool wakelock_held = false;
+static struct wakeup_source wakeup_src;
+static bool wakeup_inited = false;
+static bool wakeup_held = false;
 
-static struct wake_lock charge_wakelock;
-static bool charge_wakelock_inited = false;
-static bool charge_wakelock_held = false;
+static struct wakeup_source charge_wakeup_src;
+static bool charge_wakeup_inited = false;
+static bool charge_wakeup_held = false;
 
 static int options = -1;
 
@@ -359,8 +358,8 @@ static struct class_attribute qns_attrs[] = {
 static enum alarmtimer_restart qns_alarm_handler(struct alarm * alarm, ktime_t now)
 {
 	pr_info("QNS: ALARM! System wakeup!");
-	wake_lock(&wakelock);
-	wakelock_held = true;
+	__pm_stay_awake(&wakeup_src);
+	wakeup_held = true;
 	alarm_value = 1;
 	return ALARMTIMER_NORESTART;
 }
@@ -470,49 +469,49 @@ static ssize_t qns_param_store(struct class *dev,
 	case ALARM:
 		ret = kstrtoint(buf, 10, &val);
 		
-		if(!wakelock_inited)
+		if(!wakeup_inited)
 		{
-			wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "QnovoQNS");
-			wakelock_inited = true;
+			wakeup_source_init(&wakeup_src, "QnovoQNS");
+			wakeup_inited = true;
 		}
 
-		if(!charge_wakelock_inited)
+		if(!charge_wakeup_inited)
 		{
-			wake_lock_init(&charge_wakelock, WAKE_LOCK_SUSPEND, "QnovoQNS");
-			charge_wakelock_inited = true;
+			wakeup_source_init(&charge_wakeup_src, "QnovoQNS");
+			charge_wakeup_inited = true;
 		}
 
 		if (!ret)
 		{
 			if(val == CHARGE_WAKELOCK)
 			{
-				if(!charge_wakelock_held)
+				if(!charge_wakeup_held)
 				{
-					pr_info("QNS: Alarm: acquiring charge_wakelock via CHARGE_WAKELOCK");
+					pr_info("QNS: Alarm: acquiring charge_wakeup via CHARGE_WAKELOCK");
 
-					wake_lock(&charge_wakelock);
-					charge_wakelock_held = true;
+					__pm_stay_awake(&charge_wakeup_src);
+					charge_wakeup_held = true;
 				}
 			}
 			else if(val == CHARGE_WAKELOCK_RELEASE)
 			{
-				if(charge_wakelock_held)
+				if(charge_wakeup_held)
 				{
-					pr_info("QNS: Alarm: releasing charge_wakelock via CHARGE_WAKELOCK_RELEASE");
+					pr_info("QNS: Alarm: releasing charge_wakeup via CHARGE_WAKELOCK_RELEASE");
 					
-					wake_unlock(&charge_wakelock);
-					charge_wakelock_held = false;
+					__pm_relax(&charge_wakeup_src);
+					charge_wakeup_held = false;
 				}
 			}
 			else if(val == HANDLED)
 			{
-				if(wakelock_held)
+				if(wakeup_held)
 				{
-					pr_info("QNS: Alarm: releasing wakelock via HANDLED");
-					wake_unlock(&wakelock);
+					pr_info("QNS: Alarm: releasing wakeup source via HANDLED");
+					__pm_relax(&wakeup_src);
 				}
 				alarm_value = 0;
-				wakelock_held = false;
+				wakeup_held = false;
 			}
 			else if(val == CANCEL)
 			{
@@ -521,21 +520,21 @@ static ssize_t qns_param_store(struct class *dev,
 					alarm_cancel(&alarm);
 				}
 				alarm_value = 0;
-				if(wakelock_held)
+				if(wakeup_held)
 				{
-					pr_info("QNS: Alarm: releasing wakelock via CANCEL");
-					wake_unlock(&wakelock);
+					pr_info("QNS: Alarm: releasing wakeup source via CANCEL");
+					__pm_relax(&wakeup_src);
 				}
-				wakelock_held = false;
+				wakeup_held = false;
 			}
 			else if(val == IMMEDIATE)
 			{
-				if(!wakelock_held)
+				if(!wakeup_held)
 				{
-					pr_info("QNS: Alarm: acquiring wakelock via IMMEDIATE");
+					pr_info("QNS: Alarm: acquiring wakeup source via IMMEDIATE");
 
-					wake_lock(&wakelock);
-					wakelock_held = true;
+					__pm_stay_awake(&wakeup_src);
+					wakeup_held = true;
 				}
 			}
 			else if(val > 0)
@@ -549,14 +548,14 @@ static ssize_t qns_param_store(struct class *dev,
 				next_alarm = ktime_set(val, 0);
 				alarm_start_relative(&alarm, next_alarm);
 
-				if(wakelock_held)
+				if(wakeup_held)
 				{
-					pr_info("QNS: Alarm: releasing wakelock via alarm>0");
+					pr_info("QNS: Alarm: releasing wakeup source via alarm>0");
 					
-					wake_unlock(&wakelock);
+					__pm_relax(&wakeup_src);
 				}
 				alarm_value = 0;
-				wakelock_held = false;
+				wakeup_held = false;
 			}
 		}
 		break;
