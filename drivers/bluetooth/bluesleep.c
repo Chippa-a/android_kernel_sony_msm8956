@@ -56,7 +56,6 @@
 #include <linux/param.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
-#include <linux/wakelock.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/serial_core.h>
@@ -104,7 +103,7 @@ struct bluesleep_info {
 	unsigned ext_wake;
 	unsigned host_wake_irq;
 	struct uart_port *uport;
-	struct wake_lock wake_lock;
+	struct wakeup_source wakeup_src;
 	int irq_polarity;
 	int has_ext_wake;
 	atomic_t wakeup_irq_disabled;
@@ -226,9 +225,9 @@ static void bluesleep_sleep_work(struct work_struct *work)
 			/*Deactivating UART */
 			hsuart_power(HS_UART_OFF);
 			/* UART clk is not turned off immediately. Release
-			 * wakelock after 500 ms.
+			 * wakeup source after 500 ms.
 			 */
-			wake_lock_timeout(&bsi->wake_lock, HZ / 2);
+			__pm_wakeup_event(&bsi->wakeup_src, 500);
 		} else {
 			pr_err("This should never happen.\n");
 			return;
@@ -237,7 +236,7 @@ static void bluesleep_sleep_work(struct work_struct *work)
 		/* Can not sleep but UART has already sleep */
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_err("waking up...\n");
-		wake_lock(&bsi->wake_lock);
+		__pm_stay_awake(&bsi->wakeup_src);
 		clear_bit(BT_ASLEEP, &flags);
 
 		if (test_bit(BT_EXT_WAKE, &flags)) {
@@ -298,7 +297,7 @@ static void bluesleep_outgoing_data(void)
 	if (test_bit(BT_ASLEEP, &flags)) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_err("waking up...\n");
-		wake_lock(&bsi->wake_lock);
+		__pm_stay_awake(&bsi->wakeup_src);
 		clear_bit(BT_ASLEEP, &flags);
 		power_on_uart = 1;
 	}
@@ -383,7 +382,7 @@ static int bluesleep_start(void)
 
 	enable_wakeup_irq(1);
 	set_bit(BT_PROTO, &flags);
-	wake_lock(&bsi->wake_lock);
+	__pm_stay_awake(&bsi->wakeup_src);
 	return 0;
 }
 
@@ -420,7 +419,7 @@ static void bluesleep_stop(void)
 	atomic_inc(&open_count);
 
 	enable_wakeup_irq(0);
-	wake_lock_timeout(&bsi->wake_lock, HZ / 2);
+	__pm_wakeup_event(&bsi->wakeup_src, 500);
 }
 
 void bluesleep_setup_uart_port(struct platform_device *uart_dev)
@@ -559,7 +558,7 @@ static int bluesleep_probe(struct platform_device *pdev)
 
 	bsi->irq_polarity = POLARITY_HIGH; /* high edge (rising edge) */
 
-	wake_lock_init(&bsi->wake_lock, WAKE_LOCK_SUSPEND, "bluesleep");
+	wakeup_source_init(&bsi->wakeup_src, "bluesleep");
 	clear_bit(BT_SUSPEND, &flags);
 
 	BT_INFO("host_wake_irq %d, polarity %d",
@@ -600,7 +599,7 @@ static int bluesleep_remove(struct platform_device *pdev)
 	gpio_free(bsi->ext_wake);
 	pinctrl_select_state(bsi->pinctrl, bsi->gpio_state_suspend);
 
-	wake_lock_destroy(&bsi->wake_lock);
+	wakeup_source_trash(&bsi->wakeup_src);
 	kfree(bsi);
 	return 0;
 }
