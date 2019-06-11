@@ -21,6 +21,12 @@
 		compatible = "qcom,devbw";
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
+		/*
+		 * active-only flag is used while registering the bus
+		 * governor.It helps release the bus vote when the CPU
+		 * subsystem is inactiv3
+		 */
+		qcom,active-only;
 		qcom,bw-tbl =
 			< 0 >,    /* off                            */
 			< 805  >, /* DDR: 105.6 MHz BIMC:  52.8 MHz */
