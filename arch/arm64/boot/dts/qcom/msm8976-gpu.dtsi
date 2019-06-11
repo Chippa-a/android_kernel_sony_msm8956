@@ -57,6 +57,8 @@
 
 		qcom,highest-bank-bit = <14>;
 
+		qcom,snapshot-size = <1048576>; //bytes
+
 		qcom,pm-qos-active-latency = <401>;
 		qcom,pm-qos-wakeup-latency = <101>;
 
