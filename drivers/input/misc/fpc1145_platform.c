@@ -370,28 +370,20 @@ static unsigned int fpc1145_poll_interrupt(struct file *file,
 	int val = 0;
 	struct device *dev = fpc1145_drvdata->dev;
 
+	/* Add current file to the waiting list  */
+	poll_wait(file, &fpc1145_drvdata->irq_evt, wait);
+
 	val = gpio_get_value(fpc1145_drvdata->irq_gpio);
 	if (val) {
-		/* Early out */
-		dev_dbg(dev, "gpio already triggered\n");
+		dev_dbg(dev, "gpio triggered\n");
 		pm_wakeup_event(dev, FPC_MAX_HAL_PROCESSING_TIME);
 		return POLLIN | POLLRDNORM;
 	}
-
-	/* Add current file to the waiting list  */
-	poll_wait(file, &fpc1145_drvdata->irq_evt, wait);
 
 	/* Enable the irq */
 	if (fpc1145_drvdata->irq_fired) {
 		fpc1145_drvdata->irq_fired = false;
 		enable_irq(fpc1145_drvdata->irq);
-	}
-
-	val = gpio_get_value(fpc1145_drvdata->irq_gpio);
-	if (val) {
-		dev_dbg(dev, "gpio triggered after poll_wait\n");
-		pm_wakeup_event(dev, FPC_MAX_HAL_PROCESSING_TIME);
-		return POLLIN | POLLRDNORM;
 	}
 
 	/*
