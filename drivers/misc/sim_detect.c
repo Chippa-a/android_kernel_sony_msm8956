@@ -28,7 +28,6 @@
 #include <linux/pm.h>
 #include <linux/sim_detect.h>
 #include <linux/slab.h>
-#include <linux/switch.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
 
@@ -45,7 +44,6 @@ struct sim_detect_event_data {
 struct sim_detect_drvdata {
 	struct device *dev;
 	struct pinctrl *key_pinctrl;
-	struct switch_dev sim_detect;
 	struct mutex lock;
 	atomic_t detection_in_progress;
 	unsigned int n_events;
@@ -79,6 +77,8 @@ static int sim_detect_gpio_read(struct sim_detect_drvdata *ddata)
 
 static void sim_detect_report_switch_event(struct sim_detect_drvdata *ddata)
 {
+	char *switch_event = NULL;
+	char *envp[3];
 	int new_state = 0;
 	int report_state = NOTHING_HAPPENED;
 
@@ -97,7 +97,19 @@ static void sim_detect_report_switch_event(struct sim_detect_drvdata *ddata)
 		report_state = SIM_INSERTED;
 
 	dev_info(ddata->dev, "%s: report (%d)\n", __func__, report_state);
-	switch_set_state(&ddata->sim_detect, report_state);
+
+	switch_event = kasprintf(GFP_KERNEL, "SWITCH_STATE=%d", report_state);
+
+	if (switch_event) {
+		envp[0] = "SWITCH_NAME=sim_detect";
+		envp[1] = switch_event;
+		envp[2] = NULL;
+		if (kobject_uevent_env(&ddata->dev->kobj, KOBJ_CHANGE, envp))
+			dev_err(ddata->dev,
+				"%s: Error sending uevent\n", __func__);
+		kfree(switch_event);
+	}
+
 	ddata->current_state = new_state;
 
 skip_report:
@@ -323,20 +335,6 @@ static void sim_detect_remove_event(struct sim_detect_event_data *edata)
 		gpio_free(edata->event->gpio);
 }
 
-static int sim_detect_set_switch_device(struct sim_detect_drvdata *ddata)
-{
-	int error = 0;
-
-	ddata->sim_detect.name = SIM_DETECT_DEV_NAME;
-	ddata->sim_detect.state = SWITCH_OFF;
-	error = switch_dev_register(&ddata->sim_detect);
-	if (error) {
-		dev_err(ddata->dev, "%s cannot regist lid(%d)\n",
-			__func__, error);
-	}
-	return error;
-}
-
 static ssize_t sim_attrs_current_state_read(struct device *dev,
 					    struct device_attribute *attr,
 					    char *buf)
@@ -353,7 +351,7 @@ static int sim_detect_probe(struct platform_device *pdev)
 {
 	struct sim_detect_platform_data *pdata = pdev->dev.platform_data;
 	struct sim_detect_platform_data alt_pdata;
-	const struct sim_detect_gpio_event *event;
+	const struct sim_detect_gpio_event *event = NULL;
 	struct sim_detect_event_data *edata;
 	struct sim_detect_drvdata *ddata;
 	int i = 0;
@@ -400,13 +398,6 @@ static int sim_detect_probe(struct platform_device *pdev)
 		}
 	}
 
-	error = sim_detect_set_switch_device(ddata);
-	if (error) {
-		dev_err(ddata->dev, "%s cannot set switch dev(%d)\n",
-			__func__, error);
-		goto fail_set_switch;
-	}
-
 	error = device_create_file(ddata->dev, sim_state_attr);
 	if (error) {
 		dev_err(ddata->dev, "%s: create_file failed %d\n",
@@ -433,8 +424,6 @@ static int sim_detect_probe(struct platform_device *pdev)
 fail_setup_event:
 	device_remove_file(ddata->dev, sim_state_attr);
 fail_device_create_file:
-	switch_dev_unregister(&ddata->sim_detect);
-fail_set_switch:
 	if (ddata->key_pinctrl) {
 		set_state =
 		pinctrl_lookup_state(ddata->key_pinctrl,
@@ -460,7 +449,6 @@ static int sim_detect_remove(struct platform_device *pdev)
 	struct sim_detect_drvdata *ddata = platform_get_drvdata(pdev);
 
 	device_remove_file(ddata->dev, sim_state_attr);
-	switch_dev_unregister(&ddata->sim_detect);
 	mutex_destroy(&ddata->lock);
 	for (i = 0; i < ddata->n_events; i++)
 		sim_detect_remove_event(&ddata->data[i]);
