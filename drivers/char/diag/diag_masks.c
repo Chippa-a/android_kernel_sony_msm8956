@@ -703,7 +703,7 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 	struct diag_msg_mask_t *mask = (struct diag_msg_mask_t *)msg_mask.ptr;
 
 	if (!src_buf || !dest_buf || dest_len <= 0 ||
-                (src_len < sizeof(struct diag_msg_build_mask_t))) {
+		(src_len < sizeof(struct diag_msg_config_rsp_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
@@ -791,7 +791,7 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	struct diag_event_mask_config_t *req;
 
 	if (!src_buf || !dest_buf || dest_len <= 0 ||
-                (src_len < sizeof(struct diag_msg_build_mask_t))) {
+			(src_len < sizeof(struct diag_event_mask_config_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
@@ -840,7 +840,7 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 	struct diag_event_report_t header;
 
 	if (!src_buf || !dest_buf || dest_len <= 0 ||
-                (src_len < sizeof(struct diag_msg_build_mask_t))) {
+			(src_len <= sizeof(uint8_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
@@ -887,7 +887,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 	struct diag_log_config_rsp_t rsp;
 
 	if (!src_buf || !dest_buf || dest_len <= 0 ||
-                (src_len < sizeof(struct diag_msg_build_mask_t))) {
+			(src_len < sizeof(struct diag_log_config_req_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
@@ -999,7 +999,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	struct diag_log_config_set_rsp_t rsp;
 
 	if (!src_buf || !dest_buf || dest_len <= 0 ||
-                (src_len < sizeof(struct diag_msg_build_mask_t))) {
+			(src_len < sizeof(struct diag_log_config_req_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
