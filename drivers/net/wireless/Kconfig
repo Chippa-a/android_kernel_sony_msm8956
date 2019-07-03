@@ -109,6 +109,18 @@ config WCNSS_MEM_PRE_ALLOC
 	 for it's internal usage and release it to back to pre allocated pool.
 	 This memory is allocated at the cold boot time.
 
+config SOMC_WIFI_CONTROL
+	bool "Enable/disable SOMC WiFi control function"
+	---help---
+	  A SOMC adaptation for the WLAN driver module
+
+config BROADCOM_WIFI_RESERVED_MEM
+	bool "BROADCOM Reserved memory for wifi device"
+	depends on SOMC_WIFI_CONTROL
+	default n
+	---help---
+	  This is a configuration for broadcom WLAN driver.
+
 source "drivers/net/wireless/cnss2/Kconfig"
 source "drivers/net/wireless/cnss/Kconfig"
 source "drivers/net/wireless/cnss_utils/Kconfig"
