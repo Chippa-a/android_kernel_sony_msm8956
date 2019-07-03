@@ -48,19 +48,19 @@
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 
 /* These definitions need to be aligned with bcmdhd */
-#define WLAN_STATIC_SKB 14
+#define WLAN_STATIC_SKB 4
 #define WLAN_STATIC_SCAN_BUF0		5
 #define WLAN_STATIC_DHD_INFO_BUF	7
 #define WLAN_STATIC_DHD_WLFC_BUF	8
 #define WLAN_STATIC_DHD_IF_FLOW_LKUP	9
 #define WLAN_STATIC_DHD_MEMDUMP_RAM	11
-#define WLAN_STATIC_DHD_PKTID_MAP	12
 #define WLAN_STATIC_DHD_WLFC_HANGER	12
+#define WLAN_STATIC_DHD_PKTID_MAP	13
 
 #define WLAN_SCAN_BUF_SIZE		(64 * 1024)
 
 #if defined(CONFIG_64BIT)
-#define WLAN_DHD_INFO_BUF_SIZE		(24 * 1024)
+#define WLAN_DHD_INFO_BUF_SIZE		(32 * 1024)
 #define WLAN_DHD_WLFC_BUF_SIZE		(64 * 1024)
 #define WLAN_DHD_IF_FLOW_LKUP_SIZE	(36 * 1024)
 #else
@@ -80,11 +80,10 @@
 #define DHD_SKB_2PAGE_BUFSIZE	((PAGE_SIZE*2)-DHD_SKB_HDRSIZE)
 #define DHD_SKB_4PAGE_BUFSIZE	((PAGE_SIZE*4)-DHD_SKB_HDRSIZE)
 
-#define SIZE_ORDER(x)		((1 << x) * PAGE_SIZE)
-#define WLAN_SECTION_SIZE_0	(SIZE_ORDER(2))  /* for PROT */
-#define WLAN_SECTION_SIZE_1	(SIZE_ORDER(2))  /* for RXBUF */
-#define WLAN_SECTION_SIZE_2	(SIZE_ORDER(4))  /* for DATABUF */
-#define WLAN_SECTION_SIZE_3	(SIZE_ORDER(2))  /* for OSL_BUF */
+#define WLAN_SECTION_SIZE_0	(PREALLOC_WLAN_BUF_NUM * 128)
+#define WLAN_SECTION_SIZE_1	(PREALLOC_WLAN_BUF_NUM * 128)
+#define WLAN_SECTION_SIZE_2	(PREALLOC_WLAN_BUF_NUM * 512)
+#define WLAN_SECTION_SIZE_3	(PREALLOC_WLAN_BUF_NUM * 1024)
 
 #define DHD_SKB_1PAGE_BUF_NUM	8
 #define DHD_SKB_2PAGE_BUF_NUM	8
@@ -180,8 +179,8 @@ void
 
 	if (section == WLAN_STATIC_DHD_WLFC_HANGER) {
 		if (size > WLAN_DHD_WLFC_HANGER_SIZE) {
-			pr_err("request DHD_WLFC_HANGER size(%lu) is"
-				" bigger than static size(%d).\n",
+			pr_err("request DHD_WLFC_HANGER size(%lu) is bigger than"
+				" static size(%d).\n",
 				size, WLAN_DHD_WLFC_HANGER_SIZE);
 			return NULL;
 		}
@@ -205,20 +204,23 @@ dhd_init_wlan_mem(void)
 	int j;
 
 	for (i = 0; i < DHD_SKB_1PAGE_BUF_NUM; i++) {
-		wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_1PAGE_BUFSIZE);
-		if (!wlan_static_skb[i])
+		wlan_static_skb[i] = __dev_alloc_skb(DHD_SKB_1PAGE_BUFSIZE, GFP_KERNEL);
+		if (!wlan_static_skb[i]) {
 			goto err_skb_alloc;
+		}
 	}
 
 	for (i = DHD_SKB_1PAGE_BUF_NUM; i < WLAN_SKB_1_2PAGE_BUF_NUM; i++) {
-		wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_2PAGE_BUFSIZE);
-		if (!wlan_static_skb[i])
+		wlan_static_skb[i] = __dev_alloc_skb(DHD_SKB_2PAGE_BUFSIZE, GFP_KERNEL);
+		if (!wlan_static_skb[i]) {
 			goto err_skb_alloc;
+		}
 	}
 
-	wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_4PAGE_BUFSIZE);
-	if (!wlan_static_skb[i])
+	wlan_static_skb[i] = __dev_alloc_skb(DHD_SKB_4PAGE_BUFSIZE, GFP_KERNEL);
+	if (!wlan_static_skb[i]) {
 		goto err_skb_alloc;
+	}
 
 	for (i = 0; i < PREALLOC_WLAN_SEC_NUM; i++) {
 		if (wlan_mem_array[i].size > 0) {
