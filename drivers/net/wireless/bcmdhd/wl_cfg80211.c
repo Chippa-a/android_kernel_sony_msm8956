@@ -10564,6 +10564,10 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	u32 *channel;
 	u32 freq;
 #endif /* LINUX_VERSION > 2.6.39 || WL_COMPAT_WIRELESS */
+#if defined(CFG80211_ROAMED_API_UNIFIED) || \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
+	struct cfg80211_roam_info roam_info;
+#endif /* CFG80211_ROAMED_API_UNIFIED || LINUX_VERSION >= 4.12.0 */
 
 #ifdef WLFBT
 	uint32 data_len = 0;
@@ -10616,6 +10620,18 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	printk("wl_bss_roaming_done succeeded to " MACDBG "\n",
 		MAC2STRDBG((const u8*)(&e->addr)));
 
+#if defined(CFG80211_ROAMED_API_UNIFIED) || \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
+	memset(&roam_info, 0, sizeof(struct cfg80211_roam_info));
+	roam_info.channel = notify_channel;
+	roam_info.bssid = curbssid;
+	roam_info.req_ie = conn_info->req_ie;
+	roam_info.req_ie_len = conn_info->req_ie_len;
+	roam_info.resp_ie = conn_info->resp_ie;
+	roam_info.resp_ie_len = conn_info->resp_ie_len;
+
+	cfg80211_roamed(ndev, &roam_info, GFP_KERNEL);
+#else
 	cfg80211_roamed(ndev,
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 39)) || defined(WL_COMPAT_WIRELESS)
 		notify_channel,
@@ -10623,6 +10639,7 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		curbssid,
 		conn_info->req_ie, conn_info->req_ie_len,
 		conn_info->resp_ie, conn_info->resp_ie_len, GFP_KERNEL);
+#endif /* CFG80211_ROAMED_API_UNIFIED || LINUX_VERSION >= 4.12.0 */
 	WL_DBG(("Report roaming result\n"));
 
 	memcpy(&cfg->last_roamed_addr, (void *)&e->addr, ETHER_ADDR_LEN);
