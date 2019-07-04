@@ -68,6 +68,12 @@ struct wl_ibss;
 #define WL_DBG_INFO	(1 << 1)
 #define WL_DBG_ERR	(1 << 0)
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
+#define IEEE80211_BAND_2GHZ	NL80211_BAND_2GHZ
+#define IEEE80211_BAND_5GHZ	NL80211_BAND_5GHZ
+#define IEEE80211_NUM_BANDS	NUM_NL80211_BANDS
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)) */
+
 /* 0 invalidates all debug messages.  default is 1 */
 #define WL_DBG_LEVEL 0xFF
 
