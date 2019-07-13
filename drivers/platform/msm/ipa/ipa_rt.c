@@ -51,6 +51,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 	u32 tmp[IPA_RT_FLT_HW_RULE_BUF_SIZE/4];
 	u8 *start;
 	int pipe_idx;
+	struct ipa_hdr_entry *hdr_entry;
 
 	if (buf == NULL) {
 		memset(tmp, 0, (IPA_RT_FLT_HW_RULE_BUF_SIZE/4));
@@ -74,6 +75,16 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 	}
 	rule_hdr->u.hdr.pipe_dest_idx = pipe_idx;
 	rule_hdr->u.hdr.system = !ipa_ctx->hdr_tbl_lcl;
+	/* Adding check to confirm still
+	 * header entry present in header table or not
+	 */
+	if (entry->hdr) {
+		hdr_entry = ipa_id_find(entry->rule.hdr_hdl);
+		if (!hdr_entry || hdr_entry->cookie != IPA_HDR_COOKIE) {
+			IPAERR("Header entry already deleted\n");
+			return -EPERM;
+		}
+	}
 	if (entry->hdr) {
 		if (entry->hdr->cookie == IPA_HDR_COOKIE) {
 			rule_hdr->u.hdr.hdr_offset =

@@ -429,7 +429,8 @@ void diag_update_userspace_clients(unsigned int type)
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i].pid != 0) {
+		if (driver->client_map[i].pid != 0 &&
+			!(driver->data_ready[i] & type)) {
 			driver->data_ready[i] |= type;
 			atomic_inc(&driver->data_ready_notif[i]);
 		}
@@ -444,8 +445,10 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == process_id) {
-			driver->data_ready[i] |= data_type;
-			atomic_inc(&driver->data_ready_notif[i]);
+			if (!(driver->data_ready[i] & data_type)) {
+				driver->data_ready[i] |= data_type;
+				atomic_inc(&driver->data_ready_notif[i]);
+			}
 			break;
 		}
 	wake_up_interruptible(&driver->wait_q);
@@ -579,7 +582,8 @@ int diag_process_time_sync_query_cmd(unsigned char *src_buf, int src_len,
 	struct diag_cmd_time_sync_query_req_t *req = NULL;
 	struct diag_cmd_time_sync_query_rsp_t rsp;
 
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
+		src_len < sizeof(struct diag_cmd_time_sync_query_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 			__func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
@@ -606,7 +610,8 @@ int diag_process_time_sync_switch_cmd(unsigned char *src_buf, int src_len,
 	int msg_size = sizeof(struct diag_ctrl_msg_time_sync);
 	int err = 0, write_len = 0;
 
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
+		src_len < sizeof(struct diag_cmd_time_sync_switch_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 			__func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
