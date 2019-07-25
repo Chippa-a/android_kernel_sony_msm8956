@@ -25,6 +25,8 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 #include "iceregs.h"
+#include <linux/atomic.h>
+#include <linux/wait.h>
 
 #ifdef CONFIG_PFK
 #include <linux/pfk.h>
@@ -127,6 +129,9 @@ struct ice_device {
 	struct qcom_ice_bus_vote bus_vote;
 	ktime_t			ice_reset_start_time;
 	ktime_t			ice_reset_complete_time;
+	atomic_t		is_ice_suspended;
+	atomic_t		is_ice_busy;
+	wait_queue_head_t	block_suspend_ice_queue;
 };
 
 static int ice_fde_flag;
@@ -824,7 +829,6 @@ static int qcom_ice_probe(struct platform_device *pdev)
 	 * operation arrives.
 	 */
 	ice_dev->is_ice_enabled = false;
-
 	platform_set_drvdata(pdev, ice_dev);
 	list_add_tail(&ice_dev->list, &ice_devices);
 
@@ -859,6 +863,21 @@ static int qcom_ice_remove(struct platform_device *pdev)
 
 static int  qcom_ice_suspend(struct platform_device *pdev)
 {
+	struct ice_device *ice_dev;
+
+	ice_dev = (struct ice_device *)platform_get_drvdata(pdev);
+
+	if (!ice_dev)
+		return -EINVAL;
+
+	if (atomic_read(&ice_dev->is_ice_busy) != 0)
+		wait_event_interruptible_timeout(
+			ice_dev->block_suspend_ice_queue,
+			atomic_read(&ice_dev->is_ice_busy) != 0,
+			msecs_to_jiffies(1000));
+
+	atomic_set(&ice_dev->is_ice_suspended, 1);
+
 	return 0;
 }
 
@@ -1112,7 +1131,7 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 		err = -EFAULT;
 		goto out;
 	}
-
+	init_waitqueue_head(&ice_dev->block_suspend_ice_queue);
 	qcom_ice_low_power_mode_enable(ice_dev);
 	qcom_ice_optimization_enable(ice_dev);
 	qcom_ice_config_proc_ignore(ice_dev);
@@ -1120,7 +1139,8 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 	qcom_ice_enable(ice_dev);
 	ice_dev->is_ice_enabled = true;
 	qcom_ice_enable_intr(ice_dev);
-
+	atomic_set(&ice_dev->is_ice_suspended, 0);
+	atomic_set(&ice_dev->is_ice_busy, 0);
 out:
 	return err;
 }
@@ -1217,7 +1237,6 @@ static int qcom_ice_resume(struct platform_device *pdev)
 	 * after receiving this event
 	 */
 	struct ice_device *ice_dev;
-
 	ice_dev = platform_get_drvdata(pdev);
 
 	if (!ice_dev)
@@ -1231,7 +1250,7 @@ static int qcom_ice_resume(struct platform_device *pdev)
 		 */
 		qcom_ice_enable(ice_dev);
 	}
-
+	atomic_set(&ice_dev->is_ice_suspended, 0);
 	return 0;
 }
 
@@ -1502,10 +1521,22 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		return 0;
 	}
 
+	if (atomic_read(&ice_dev->is_ice_suspended) == 1)
+		return -EINVAL;
+
+	if (async)
+		atomic_set(&ice_dev->is_ice_busy, 1);
+
 	ice_rev = ICE_REV(ice_dev->ice_hw_version, MAJOR);
 
 	ret = pfk_load_key_start(req->bio, &pfk_crypto_data,
 				&is_pfe, async, ice_rev);
+
+	if (async) {
+		atomic_set(&ice_dev->is_ice_busy, 0);
+		wake_up_interruptible(&ice_dev->block_suspend_ice_queue);
+	}
+
 	if (is_pfe) {
 		if (ret) {
 			if (ret != -EBUSY && ret != -EAGAIN)
@@ -1583,7 +1614,6 @@ static int qcom_ice_config_end(struct request *req)
 		/* It is not an error to have a request with no  bio */
 		return 0;
 	}
-
 	ret = pfk_load_key_end(req->bio, &is_pfe);
 	if (is_pfe) {
 		if (ret != 0)
