@@ -346,6 +346,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8950_vadc 0x11>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -361,6 +362,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8950_vadc 0x32>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -376,6 +378,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8950_vadc 0x3c>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -391,6 +394,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8950_vadc 0x13>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -406,6 +410,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pm8950_adc_tm 0x36>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -421,6 +426,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8950_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pm8950_trip0: pm8950-trip0 {

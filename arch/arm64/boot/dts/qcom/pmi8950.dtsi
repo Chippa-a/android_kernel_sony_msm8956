@@ -616,6 +616,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmi8950_vadc 0xd>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 
 		trips {
 			active-config0 {
@@ -631,6 +632,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 0>;
+		wake-capable-sensor;
 
 		trips {
 			ibat-high {
@@ -646,6 +648,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 1>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -662,6 +665,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 2>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
