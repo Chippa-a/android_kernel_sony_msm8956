@@ -3,11 +3,6 @@
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
-/*
- * NOTE: This file has been modified by Sony Mobile Communications Inc.
- * Modifications are Copyright (c) 2017 Sony Mobile Communications Inc,
- * and licensed under the license of the file.
- */
 
 /*
  *  'fork.c' contains the help-routines for the 'fork' system call
@@ -76,7 +71,6 @@
 #include <linux/signalfd.h>
 #include <linux/uprobes.h>
 #include <linux/aio.h>
-#include <linux/oom_score_notifier.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -1534,9 +1528,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 				ns_of_pid(pid)->child_reaper = p;
 				p->signal->flags |= SIGNAL_UNKILLABLE;
 			}
-			retval = oom_score_notify_new(p);
-			if (retval)
-				goto bad_fork_free_pid;
 
 			p->signal->leader_pid = pid;
 			p->signal->tty = tty_kref_get(current->signal->tty);
