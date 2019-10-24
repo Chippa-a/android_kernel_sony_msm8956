@@ -253,9 +253,17 @@ end:
 	return freed;
 }
 
+static int zcache_shrink(struct shrinker *s,
+				  struct shrink_control *sc)
+{
+	if (sc->nr_to_scan)
+		return zcache_scan(s, sc);
+	else
+		return zcache_count(s, sc);
+}
+
 static struct shrinker zcache_shrinker = {
-	.scan_objects = zcache_scan,
-	.count_objects = zcache_count,
+	.shrink = zcache_shrink,
 	.seeks = DEFAULT_SEEKS * 16
 };
 
