@@ -1241,11 +1241,11 @@ static int __init cpu_clock_a72_init(void)
 
 	/* Wait for update to take effect */
 	for (count = 500; count > 0; count--) {
-		if (!(readl_relaxed(base)) & BIT(0))
+		if ((!readl_relaxed(base)) & BIT(0))
 			break;
 		udelay(1);
 	}
-	if (!(readl_relaxed(base)) & BIT(0))
+	if ((!readl_relaxed(base)) & BIT(0))
 		panic("A72 RCG configuration didn't update!\n");
 
 	/* Enable the branch */
