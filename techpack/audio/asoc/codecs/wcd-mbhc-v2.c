@@ -9,6 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -555,6 +560,9 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	bool is_pa_on = false;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	bool skip_report = false;
+#endif
 	u8 fsm_en = 0;
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
@@ -596,7 +604,13 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		}
 
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		mbhc->extn_cable_inserted = false;
+		if (!mbhc->skip_impdet_retry)
+			mbhc->zl = mbhc->zr = 0;
+#else
 		mbhc->zl = mbhc->zr = 0;
+#endif
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -636,7 +650,12 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				mbhc->micbias_enable = false;
 			}
 			mbhc->hph_type = WCD_MBHC_HPH_NONE;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+			if (!mbhc->skip_impdet_retry)
+				mbhc->zl = mbhc->zr = 0;
+#else
 			mbhc->zl = mbhc->zr = 0;
+#endif
 			pr_debug("%s: Reporting removal (%x)\n",
 				 __func__, mbhc->hph_status);
 			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -675,6 +694,10 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->jiffies_atreport = jiffies;
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+			skip_report = true;
+			pr_debug("%s: extension cable detected\n", __func__);
+#endif
 		} else if (jack_type == SND_JACK_ANC_HEADPHONE)
 			mbhc->current_plug = MBHC_PLUG_TYPE_ANC_HEADPHONE;
 
@@ -690,6 +713,42 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MUX_CTL,
 						 MUX_CTL_AUTO);
+#ifdef CONFIG_ARCH_SONY_LOIRE
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
+			if (!mbhc->skip_impdet_retry) {
+				mbhc->mbhc_cb->compute_impedance(mbhc,
+						&mbhc->zl, &mbhc->zr);
+				pr_debug("%s: impedance L:%d R:%d\n", __func__,
+					 mbhc->zl, mbhc->zr);
+			} else {
+				pr_debug("%s: skip impedance detection\n",
+					__func__);
+			}
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN,
+						 fsm_en);
+
+			if (jack_type == SND_JACK_HEADPHONE)
+				mbhc->skip_impdet_retry = true;
+			else
+				mbhc->skip_impdet_retry = false;
+
+			if (mbhc->zl > mbhc->mbhc_cfg->linein_th &&
+			    jack_type == SND_JACK_ANC_HEADPHONE) {
+				if(!wcd_mbhc_is_hph_pa_on(mbhc)) {
+					jack_type = SND_JACK_STEREO_MICROPHONE;
+					mbhc->current_plug =
+						MBHC_PLUG_TYPE_STEREO_MICROPHONE;
+					mbhc->hph_status &= ~SND_JACK_HEADPHONE;
+					pr_debug("%s: Stereo microphone detected\n",
+						 __func__);
+				} else {
+					pr_debug("%s: Skip Stereo microphone reporting\n",
+						 __func__);
+				}
+			} else if (mbhc->zl > mbhc->mbhc_cfg->linein_th &&
+				mbhc->zr > mbhc->mbhc_cfg->linein_th &&
+				jack_type == SND_JACK_HEADPHONE) {
+#else
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
 			mbhc->mbhc_cb->compute_impedance(mbhc,
 					&mbhc->zl, &mbhc->zr);
@@ -700,10 +759,16 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				(mbhc->zr > mbhc->mbhc_cfg->linein_th &&
 				 mbhc->zr < MAX_IMPED) &&
 				(jack_type == SND_JACK_HEADPHONE)) {
+#endif
 				jack_type = SND_JACK_LINEOUT;
 				mbhc->force_linein = true;
 				mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+				if (mbhc->hph_status &&
+				    mbhc->hph_status != SND_JACK_LINEOUT) {
+#else
 				if (mbhc->hph_status) {
+#endif
 					mbhc->hph_status &= ~(SND_JACK_HEADSET |
 							SND_JACK_LINEOUT |
 							SND_JACK_UNSUPPORTED);
@@ -719,11 +784,23 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 
 		mbhc->hph_status |= jack_type;
 
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		if (!skip_report) {
+			pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
+				 jack_type, mbhc->hph_status);
+			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
+						(mbhc->hph_status | SND_JACK_MECHANICAL),
+						WCD_MBHC_JACK_MASK);
+		} else {
+			pr_debug("%s: Skip reporting insertion\n", __func__);
+		}
+#else
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
+#endif
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
@@ -947,6 +1024,11 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		case MBHC_PLUG_TYPE_ANC_HEADPHONE:
 			jack_type = SND_JACK_ANC_HEADPHONE;
 			break;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		case MBHC_PLUG_TYPE_STEREO_MICROPHONE:
+			jack_type = SND_JACK_STEREO_MICROPHONE;
+			break;
+#endif
 		default:
 			pr_info("%s: Invalid current plug: %d\n",
 				__func__, mbhc->current_plug);
@@ -1905,6 +1987,9 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
 	mbhc->extn_cable_hph_rem = false;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	mbhc->extn_cable_inserted = false;
+#endif
 	mbhc->hph_type = WCD_MBHC_HPH_NONE;
 	mbhc->wcd_mbhc_regs = wcd_mbhc_regs;
 	mbhc->swap_thr = GND_MIC_SWAP_THRESHOLD;
