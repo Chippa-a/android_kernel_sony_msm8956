@@ -9,6 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 #ifndef __WCD_MBHC_V2_H__
 #define __WCD_MBHC_V2_H__
 
@@ -23,7 +28,11 @@
 #define WCD_MBHC_DEF_BUTTONS 8
 #define WCD_MBHC_KEYCODE_NUM 8
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
+#ifdef CONFIG_ARCH_SONY_LOIRE
+#define WCD_MBHC_THR_HS_MICB_MV  2750
+#else
 #define WCD_MBHC_THR_HS_MICB_MV  2700
+#endif
 /* z value defined in Ohms */
 #define WCD_MONO_HS_MIN_THR	2
 #define WCD_MBHC_STRINGIFY(s)  __stringify(s)
@@ -143,12 +152,20 @@ do {                                                    \
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define GND_MIC_USBC_SWAP_THRESHOLD 2
+#ifdef CONFIG_ARCH_SONY_LOIRE
+#define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 150
+#else
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
+#endif
 #define HS_VREF_MIN_VAL 1400
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
+#ifdef CONFIG_ARCH_SONY_LOIRE
+#define FAKE_REM_RETRY_ATTEMPTS 10
+#else
 #define FAKE_REM_RETRY_ATTEMPTS 3
 #define MAX_IMPED 60000
+#endif
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 #define ANC_DETECT_RETRY_CNT 7
@@ -232,6 +249,9 @@ enum wcd_mbhc_plug_type {
 	MBHC_PLUG_TYPE_HIGH_HPH,
 	MBHC_PLUG_TYPE_GND_MIC_SWAP,
 	MBHC_PLUG_TYPE_ANC_HEADPHONE,
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	MBHC_PLUG_TYPE_STEREO_MICROPHONE,
+#endif
 };
 
 enum pa_dac_ack_flags {
@@ -536,6 +556,10 @@ struct wcd_mbhc {
 	bool btn_press_intr;
 	bool is_hs_recording;
 	bool is_extn_cable;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	bool extn_cable_inserted;
+	bool skip_impdet_retry;
+#endif
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
 	bool extn_cable_hph_rem;

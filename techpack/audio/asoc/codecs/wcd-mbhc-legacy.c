@@ -9,6 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -276,6 +281,9 @@ static void wcd_mbhc_update_fsm_source(struct wcd_mbhc *mbhc,
 		break;
 	case MBHC_PLUG_TYPE_HEADSET:
 	case MBHC_PLUG_TYPE_ANC_HEADPHONE:
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	case MBHC_PLUG_TYPE_STEREO_MICROPHONE:
+#endif
 		if (!mbhc->is_hs_recording && !micbias2)
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
 		break;
@@ -457,6 +465,12 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
 	codec = mbhc->codec;
+
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	/* Wait for debounce time 200ms for extension cable */
+	if (mbhc->extn_cable_inserted)
+		msleep(200);
+#endif
 
 	/*
 	 * Enable micbias/pullup for detection in correct work.
@@ -673,7 +687,13 @@ correct_plug_type:
 				if (((mbhc->current_plug !=
 				      MBHC_PLUG_TYPE_HEADSET) &&
 				     (mbhc->current_plug !=
+#ifdef CONFIG_ARCH_SONY_LOIRE
+				      MBHC_PLUG_TYPE_ANC_HEADPHONE) &&
+				     (mbhc->current_plug !=
+				      MBHC_PLUG_TYPE_STEREO_MICROPHONE)) &&
+#else
 				      MBHC_PLUG_TYPE_ANC_HEADPHONE)) &&
+#endif
 				    !wcd_swch_level_remove(mbhc) &&
 				    !mbhc->btn_press_intr) {
 					pr_debug("%s: cable is %sheadset\n",
@@ -695,20 +715,33 @@ correct_plug_type:
 		 */
 		if (!mbhc->force_linein)
 			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		else
+			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+#endif
 	}
 	/*
 	 * If plug_tye is headset, we might have already reported either in
 	 * detect_plug-type or in above while loop, no need to report again
 	 */
 	if (!wrk_complete && ((plug_type == MBHC_PLUG_TYPE_HEADSET) ||
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	    (plug_type == MBHC_PLUG_TYPE_ANC_HEADPHONE) ||
+	    (plug_type == MBHC_PLUG_TYPE_STEREO_MICROPHONE))) {
+#else
 	    (plug_type == MBHC_PLUG_TYPE_ANC_HEADPHONE))) {
+#endif
 		pr_debug("%s: plug_type:0x%x already reported\n",
 			 __func__, mbhc->current_plug);
 		goto enable_supply;
 	}
 
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		(!det_extn_cable_en) && (!mbhc->force_linein)) {
+#else
 		(!det_extn_cable_en)) {
+#endif
 		if (wcd_is_special_headset(mbhc)) {
 			pr_debug("%s: Special headset found %d\n",
 					__func__, plug_type);
@@ -786,6 +819,10 @@ exit:
 
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
 		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
+
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	mbhc->skip_impdet_retry = false;
+#endif
 
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	pr_debug("%s: leave\n", __func__);
@@ -1006,6 +1043,9 @@ determine_plug:
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	mbhc->is_extn_cable = true;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	mbhc->extn_cable_inserted = true;
+#endif
 	mbhc->btn_press_intr = false;
 	wcd_mbhc_detect_plug_type(mbhc);
 	WCD_MBHC_RSC_UNLOCK(mbhc);

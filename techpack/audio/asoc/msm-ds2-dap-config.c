@@ -10,6 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/err.h>
 #include <linux/module.h>
@@ -331,6 +336,12 @@ int qti_set_custom_stereo_on(int port_id, int copp_idx,
 	pr_debug("%s: port 0x%x, copp_idx %d, is_custom_stereo_on %d\n",
 		 __func__, port_id, copp_idx, is_custom_stereo_on);
 	if (is_custom_stereo_on) {
+#ifdef CONFIG_ARCH_SONY_LOIRE
+		op_FL_ip_FL_weight = 0;
+		op_FL_ip_FR_weight = Q14_GAIN_UNITY;
+		op_FR_ip_FL_weight = Q14_GAIN_UNITY;
+		op_FR_ip_FR_weight = 0;
+#else
 		op_FL_ip_FL_weight =
 			Q14_GAIN_ZERO_POINT_FIVE;
 		op_FL_ip_FR_weight =
@@ -339,6 +350,7 @@ int qti_set_custom_stereo_on(int port_id, int copp_idx,
 			Q14_GAIN_ZERO_POINT_FIVE;
 		op_FR_ip_FR_weight =
 			Q14_GAIN_ZERO_POINT_FIVE;
+#endif
 	} else {
 		op_FL_ip_FL_weight = Q14_GAIN_UNITY;
 		op_FL_ip_FR_weight = 0;
