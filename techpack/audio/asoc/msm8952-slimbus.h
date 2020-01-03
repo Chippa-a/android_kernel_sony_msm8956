@@ -38,6 +38,9 @@ struct msm8952_codec {
 struct msm8952_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
+#ifdef CONFIG_ARCH_SONY_LOIRE
+	int ear_en_gpio;
+#endif
 	struct delayed_work hs_detect_dwork;
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;

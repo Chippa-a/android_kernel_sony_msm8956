@@ -201,3 +201,9 @@ config WCD9XXX_CODEC_CORE
 
 config WCD_DSP_GLINK
 	tristate "WCD_DSP_GLINK"
+
+config AHC
+	tristate "AHC"
+
+config FORCE_24BIT_COPP
+	tristate "FORCE_24BIT_COPP"

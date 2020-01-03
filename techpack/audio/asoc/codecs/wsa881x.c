@@ -10,6 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -1071,7 +1076,11 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 			    0x03, 0x00);
 	if (snd_soc_read(codec, WSA881X_OTP_REG_0))
 		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
+#ifdef CONFIG_ARCH_SONY_LOIRE
+				    0xF0, 0x30);
+#else
 				    0xF0, 0x70);
+#endif
 	snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT2,
 			    0xF0, 0x30);
 	snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x08, 0x08);

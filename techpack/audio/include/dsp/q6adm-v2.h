@@ -108,6 +108,11 @@ int adm_send_params_v5(int port_id, int copp_idx, char *params,
 int adm_dolby_dap_send_params(int port_id, int copp_idx, char *params,
 			      uint32_t params_length);
 
+#ifdef CONFIG_ARCH_SONY_LOIRE
+int adm_ahc_send_params(int port_id, int copp_idx, char *params,
+			uint32_t params_length);
+#endif
+
 int adm_open(int port, int path, int rate, int mode, int topology,
 			   int perf_mode, uint16_t bits_per_sample,
 			   int app_type, int acdbdev_id, int session_type);
