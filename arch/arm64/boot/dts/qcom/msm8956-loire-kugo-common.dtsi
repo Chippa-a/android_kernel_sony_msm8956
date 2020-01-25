@@ -749,3 +749,22 @@
 		};
 	};
 };
+
+&thermal_zones {
+	/delete-node/ bl_therm;
+
+	flash_therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmi8950_vadc 0x10>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <2147483647>;
+				hysteresis = <(-1)>;
+				type = "passive";
+			};
+		};
+	};
+};
