@@ -51,19 +51,16 @@
 			pinctrl-0 = <&msm_gpio_13_act>;
 			pinctrl-1 = <&msm_gpio_13_sus>;
 		};
-		tof_sensor@52 {
-			compatible = "tof_sensor";
-			reg = <0x52>;
+		tof_sensor@29 {
+			compatible = "st,stmvl53l0";
+			reg = <0x29>;
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <12 0x0>;
-			tof_avdd-supply = <&pm8950_l5>;
-			tof-supply_name = "tof_avdd";
+			vdd-supply = <&pm8950_l5>;
+			tof-supply_name = "vdd";
 			pinctrl-names = "tof_irq_active", "tof_irq_suspend";
 			pinctrl-0 = <&msm_gpio_12_act>;
 			pinctrl-1 = <&msm_gpio_12_sus>;
-			sony,tof-sensor-name = "VL53L0";
-			sony,tof-need-cam-on = <1>;
-			sony,tof-sensor-facing = <0>;
 		};
 	};
 
@@ -141,13 +138,6 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&msm_gpio_36_def>;
 		pinctrl-1 = <&msm_gpio_36_def>;
-	};
-
-	camera_rgbcir_vreg: camera_rgbcir_vreg {
-		compatible = "regulator-fixed";
-		regulator-name = "camera_rgbcir_vreg";
-		startup-delay-us = <0>;
-		gpio = <&msm_gpio 127 0>;
 	};
 };
 
@@ -430,38 +420,20 @@
 };
 
 &cci {
-	qcom,camera@0 {
-		gpio_vio-supply = <&camera_rgbcir_vreg>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio", "gpio_vio";
-		qcom,cam-vreg-type = <0 0 1 0>;
-		qcom,cam-vreg-min-voltage = <1200000 2700000 0 0>;
-		qcom,cam-vreg-max-voltage = <1200000 2700000 0 0>;
-		qcom,cam-vreg-op-mode = <333000 46000 0 0>;
-		gpios = <&msm_gpio 26 0>, <&msm_gpio 35 0>;
-		/delete-property/ qcom,gpio-vio;
-		qcom,gpio-req-tbl-num = <0 1>;
-		qcom,gpio-req-tbl-flags = <1 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK0", "CAM_RESET0";
-	};
 	qcom,camera@1 {
 		cell-index = <1>;
-		compatible = "qcom,sony_camera_1";
+		compatible = "qcom,camera";
 		reg = <0x1>;
-		status = "ok";
-		qcom,slave-id = <0x6c 0x0000 0x0000>;
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
-		qcom,mount-angle = <0>;
-		qcom,sensor-name = "sony_camera_1";
+		qcom,mount-angle = <90>;
 		cam_vdig-supply = <&pm8950_l1>;
 		cam_vana-supply = <&pm8950_l10>;
-		cam_vio-supply = <&pm8950_l5>;
-		gpio_vio-supply = <&camera_rgbcir_vreg>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio", "gpio_vio";
-		qcom,cam-vreg-type = <0 0 1 0>;
-		qcom,cam-vreg-min-voltage = <1200000 2700000 0 0>;
-		qcom,cam-vreg-max-voltage = <1200000 2700000 0 0>;
-		qcom,cam-vreg-op-mode = <333000 46000 0 0>;
+		cam_vio-supply = <&camera_rgbcir_vreg>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1200000 0 2700000>;
+		qcom,cam-vreg-max-voltage = <1200000 0 2700000>;
+		qcom,cam-vreg-op-mode = <105000 0 85000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_default &cam_sensor_front_default>;
@@ -471,282 +443,14 @@
 		/delete-property/ qcom,gpio-vio;
 		qcom,gpio-req-tbl-num = <0 1>;
 		qcom,gpio-req-tbl-flags = <1 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET2";
-		qcom,csi-lane-assign = <0x4320>;
-		qcom,csi-lane-mask = <0x7>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET1";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
 		qcom,cci-master = <1>;
+		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>, <&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
-		sony,i2c_addr = <0x6c>;
-		sony,eeprom_addr = <0xA0>;
-		sony,eeprom_type = <0>;
-		sony,eeprom_max_len = <1024>;
-		sony,subdev_code = <0x3007>;
-		sony_camera_module_1: sony,camera_modules {
-		    status = "disabled";
-		};
-	};
-};
-
-&sony_camera_module_0 {
-	GENERIC {
-		power_off {
-			commands =
-				"GPIO_RESET",
-				"CAM_CLK",
-				"CAM_VDIG",
-				"GPIO_VIO",
-				"CAM_VIO",
-				"CAM_VANA",
-				"CAM_VAF",
-				"EXIT";
-			GPIO_VIO = <5 0xFFFFFFFF 0 1>;
-		};
-		power_on {
-			commands =
-				"CAM_VDIG",
-				"CAM_VIO",
-				"GPIO_VIO",
-				"CAM_VANA",
-				"CAM_VAF",
-				"CAM_CLK",
-				"GPIO_RESET",
-				"EXIT";
-			GPIO_VIO = <5 0 0 1>;
-		};
-	};
-	SOI25BS4 {
-		power_off {
-			commands =
-				"GPIO_RESET",
-				"CAM_CLK",
-				"CAM_VDIG",
-				"GPIO_VIO",
-				"CAM_VIO",
-				"CAM_VANA",
-				"CAM_VAF",
-				"EXIT";
-			GPIO_VIO = <5 0xFFFFFFFF 0 1>;
-		};
-		power_on {
-			commands =
-				"CAM_VDIG",
-				"CAM_VIO",
-				"GPIO_VIO",
-				"CAM_VANA",
-				"CAM_VAF",
-				"CAM_CLK",
-				"GPIO_RESET",
-				"EXIT";
-			GPIO_VIO = <5 0 0 1>;
-		};
-	};
-};
-
-&sony_camera_module_1 {
-	module_names = "GENERIC", "LGI05BN0", "SEM05BN0";
-	default_module_name = "SEM05BN0";
-	status = "ok";
-	/delete-property/ SOI13BS0;
-	/delete-property/ SEM13BS0;
-
-	GENERIC {
-		mount_angle = <270>;
-		sensor_rotation = <180>;
-		sensor_facing = <1>;
-		total_pixel_number_w = <2608>;
-		total_pixel_number_h = <2000>;
-		active_pixel_number_x = <8>;
-		active_pixel_number_y = <8>;
-		active_pixel_number_w = <2592>;
-		active_pixel_number_h = <1944>;
-		min_focus_distance = <0>;
-		hyper_focal_distance = <0>;
-		diagonal_len = "3.63";
-		unit_cell_size_w = "1.12";
-		unit_cell_size_h = "1.12";
-		min_f_number = "2.40";
-		max_f_number = "2.40";
-		has_3a = <0>;
-		has_focus_actuator = <0>;
-		need_standby_af = <0>;
-		i2c_freq_mode = <0>;
-		has_pdaf = <0>;
-		has_rs = <1>;
-		pdaf_free_area_num = <0>;
-		pdaf_fixed_area_size_w = <0>;
-		pdaf_fixed_area_size_h = <0>;
-		pll_num = <26>;
-		pll = <145 109 112 112 122 109 182 75 112 136 145 182 182 145 142 175 104 182 145 145 182 182 182 182 104 112>;
-		power_off {
-			commands =
-				"I2C_WRITE",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"CAM_VANA",
-				"GPIO_VIO",
-				"CAM_VIO",
-				"CAM_VDIG",
-				"EXIT";
-			CAM_VDIG = <0 0xFFFFFFFF 0 98>;
-			CAM_VIO = <1 0xFFFFFFFF 0 1>;
-			CAM_VANA = <2 0xFFFFFFFF 0 1>;
-			GPIO_VIO = <5 0xFFFFFFFF 0 1>;
-			GPIO_RESET = <8 0x0 0 1>;
-			CAM_CLK = <9 0xFFFFFFFF 0 1>;
-			I2C_WRITE = <10 0x0100 0 100>;
-			EXIT = <11 0x0 0 0>;
-		};
-		power_on {
-			commands =
-				"CAM_VDIG",
-				"CAM_VIO",
-				"GPIO_VIO",
-				"CAM_VANA",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"EXIT";
-			CAM_VDIG = <0 1200 85000 1>;
-			CAM_VIO = <1 0 0 1>;
-			CAM_VANA = <2 2700 103000 1>;
-			GPIO_VIO = <5 0 0 1>;
-			GPIO_RESET = <8 1 0 1>;
-			CAM_CLK = <9 0 0 1>;
-			EXIT = <11 0x0 0 0>;
-		};
-	};
-	LGI05BN0 {
-		mount_angle = <270>;
-		sensor_rotation = <180>;
-		sensor_facing = <1>;
-		total_pixel_number_w = <2608>;
-		total_pixel_number_h = <2000>;
-		active_pixel_number_x = <8>;
-		active_pixel_number_y = <8>;
-		active_pixel_number_w = <2592>;
-		active_pixel_number_h = <1944>;
-		min_focus_distance = <0>;
-		hyper_focal_distance = <0>;
-		diagonal_len = "3.63";
-		unit_cell_size_w = "1.12";
-		unit_cell_size_h = "1.12";
-		min_f_number = "2.40";
-		max_f_number = "2.40";
-		has_3a = <0>;
-		has_focus_actuator = <0>;
-		need_standby_af = <0>;
-		i2c_freq_mode = <0>;
-		has_pdaf = <0>;
-		has_rs = <1>;
-		pdaf_free_area_num = <0>;
-		pdaf_fixed_area_size_w = <0>;
-		pdaf_fixed_area_size_h = <0>;
-		pll_num = <26>;
-		pll = <118 118 95 118 125 118 118 125 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118>;
-		power_off {
-			commands =
-				"I2C_WRITE",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"CAM_VANA",
-				"GPIO_VIO",
-				"CAM_VIO",
-				"CAM_VDIG",
-				"EXIT";
-			CAM_VDIG = <0 0xFFFFFFFF 0 98>;
-			CAM_VIO = <1 0xFFFFFFFF 0 1>;
-			CAM_VANA = <2 0xFFFFFFFF 0 1>;
-			GPIO_VIO = <5 0xFFFFFFFF 0 1>;
-			GPIO_RESET = <8 0x0 0 1>;
-			CAM_CLK = <9 0xFFFFFFFF 0 1>;
-			I2C_WRITE = <10 0x0100 0 100>;
-			EXIT = <11 0x0 0 0>;
-		};
-		power_on {
-			commands =
-				"CAM_VDIG",
-				"CAM_VIO",
-				"GPIO_VIO",
-				"CAM_VANA",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"EXIT";
-			CAM_VDIG = <0 1200 85000 1>;
-			CAM_VIO = <1 0 0 1>;
-			CAM_VANA = <2 2700 103000 1>;
-			GPIO_VIO = <5 0 0 1>;
-			GPIO_RESET = <8 1 0 1>;
-			CAM_CLK = <9 0 0 1>;
-			EXIT = <11 0x0 0 0>;
-		};
-	};
-	SEM05BN0 {
-		mount_angle = <270>;
-		sensor_rotation = <180>;
-		sensor_facing = <1>;
-		total_pixel_number_w = <2608>;
-		total_pixel_number_h = <2000>;
-		active_pixel_number_x = <8>;
-		active_pixel_number_y = <8>;
-		active_pixel_number_w = <2592>;
-		active_pixel_number_h = <1944>;
-		min_focus_distance = <0>;
-		hyper_focal_distance = <0>;
-		diagonal_len = "3.63";
-		unit_cell_size_w = "1.12";
-		unit_cell_size_h = "1.12";
-		min_f_number = "2.40";
-		max_f_number = "2.40";
-		has_3a = <0>;
-		has_focus_actuator = <0>;
-		need_standby_af = <0>;
-		i2c_freq_mode = <0>;
-		has_pdaf = <0>;
-		has_rs = <1>;
-		pdaf_free_area_num = <0>;
-		pdaf_fixed_area_size_w = <0>;
-		pdaf_fixed_area_size_h = <0>;
-		pll_num = <26>;
-		pll = <118 118 95 118 125 118 118 125 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118 118>;
-		power_off {
-			commands =
-				"I2C_WRITE",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"CAM_VANA",
-				"GPIO_VIO",
-				"CAM_VIO",
-				"CAM_VDIG",
-				"EXIT";
-			CAM_VDIG = <0 0xFFFFFFFF 0 98>;
-			CAM_VIO = <1 0xFFFFFFFF 0 1>;
-			CAM_VANA = <2 0xFFFFFFFF 0 1>;
-			GPIO_VIO = <5 0xFFFFFFFF 0 1>;
-			GPIO_RESET = <8 0x0 0 1>;
-			CAM_CLK = <9 0xFFFFFFFF 0 1>;
-			I2C_WRITE = <10 0x0100 0 100>;
-			EXIT = <11 0x0 0 0>;
-		};
-		power_on {
-			commands =
-				"CAM_VDIG",
-				"CAM_VIO",
-				"GPIO_VIO",
-				"CAM_VANA",
-				"GPIO_RESET",
-				"CAM_CLK",
-				"EXIT";
-			CAM_VDIG = <0 1200 85000 1>;
-			CAM_VIO = <1 0 0 1>;
-			CAM_VANA = <2 2700 103000 1>;
-			GPIO_VIO = <5 0 0 1>;
-			GPIO_RESET = <8 1 0 1>;
-			CAM_CLK = <9 0 0 1>;
-			EXIT = <11 0x0 0 0>;
-		};
 	};
 };
 
