@@ -10,6 +10,11 @@
  * GNU General Public License for more details.
  *
  */
+/*
+ * NOTE: This file has been modified by Sony Mobile Communications Inc.
+ * Modifications are Copyright (c) 2015 Sony Mobile Communications Inc,
+ * and licensed under the license of the file.
+ */
 
 #include <linux/module.h>
 #include <linux/device.h>
@@ -135,6 +140,8 @@ enum usb_vdd_value {
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence values. Value of -1 is reserved as
  *              "do not overwrite default value at this address".
+ * @phy_init_seq_host: PHY configuration sequence values for host mode. Value of
+ *              -1 is reserved as "do not overwrite default value at this address".
  * @power_budget: VBUS power budget in mA (0 will be treated as 500mA).
  * @mode: Supported mode (OTG/peripheral/host).
  * @otg_control: OTG switch controlled by user/Id pin
@@ -183,6 +190,7 @@ enum usb_vdd_value {
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
+	int *phy_init_seq_host;
 	int phy_init_sz;
 	unsigned int power_budget;
 	enum usb_mode_type mode;
@@ -254,6 +262,11 @@ static char *override_phy_init;
 module_param(override_phy_init, charp, 0644);
 MODULE_PARM_DESC(override_phy_init,
 	"Override HSUSB PHY Init Settings");
+
+static char *override_phy_init_host;
+module_param(override_phy_init_host, charp, 0644);
+MODULE_PARM_DESC(override_phy_init_host,
+	"Override HSUSB PHY Init Host Settings");
 
 unsigned int lpm_disconnect_thresh = 1000;
 module_param(lpm_disconnect_thresh, uint, 0644);
@@ -596,19 +609,35 @@ static struct usb_phy_io_ops msm_otg_io_ops = {
 	.write = ulpi_write,
 };
 
-static void ulpi_init(struct msm_otg *motg)
+static void ulpi_init(struct msm_otg *motg, enum usb_mode_type mode)
 {
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int aseq[10];
 	int *seq = NULL;
 
-	if (override_phy_init) {
-		pr_debug("%s(): HUSB PHY Init:%s\n", __func__,
-				override_phy_init);
-		get_options(override_phy_init, ARRAY_SIZE(aseq), aseq);
-		seq = &aseq[1];
-	} else {
-		seq = pdata->phy_init_seq;
+	switch (mode) {
+	case USB_HOST:
+		if (override_phy_init_host) {
+			pr_info("%s(): HUSB PHY Init Host override:%s\n",
+					__func__, override_phy_init_host);
+			get_options(override_phy_init_host, ARRAY_SIZE(aseq),
+									aseq);
+			seq = &aseq[1];
+		} else {
+			seq = pdata->phy_init_seq_host;
+		}
+		break;
+	case USB_PERIPHERAL:
+	default:
+		if (override_phy_init) {
+			pr_info("%s(): HUSB PHY Init override:%s\n",
+					__func__, override_phy_init);
+			get_options(override_phy_init, ARRAY_SIZE(aseq), aseq);
+			seq = &aseq[1];
+		} else {
+			seq = pdata->phy_init_seq;
+		}
+		break;
 	}
 
 	if (!seq)
@@ -941,7 +970,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	msm_usb_phy_reset(motg);
 
 	/* Program USB PHY Override registers. */
-	ulpi_init(motg);
+	ulpi_init(motg, USB_PERIPHERAL);
 
 	/*
 	 * It is required to reset USB PHY after programming
@@ -2067,6 +2096,7 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 			val &= ~APF_CTRL_EN;
 			writel_relaxed(val, USB_HS_APF_CTRL);
 		}
+		ulpi_init(motg, USB_HOST);
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 #ifdef CONFIG_SMP
 		motg->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
@@ -2219,6 +2249,8 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		dev_dbg(otg->usb_phy->dev, "gadget on\n");
 		msm_otg_dbg_log_event(&motg->phy, "GADGET ON",
 				motg->inputs, otg->state);
+
+		ulpi_init(motg, USB_PERIPHERAL);
 
 		/* Configure BUS performance parameters for MAX bandwidth */
 		if (debug_bus_voting_enabled)
@@ -3833,6 +3865,36 @@ static int msm_otg_psy_changed(struct notifier_block *nb, unsigned long evt,
 	return 0;
 }
 
+static void msm_otg_phy_init_dump(char *log, int num, int *init_seq)
+{
+	#define PARAM_STRFMT "0x%08x, "
+	#define PARAM_STRLEN 12
+	char *params;
+	int i;
+	int length;
+
+	if (!log || !init_seq)
+		return;
+
+	params = kzalloc(PARAM_STRLEN * num + 1, GFP_KERNEL);
+	if (!params)
+		return;
+
+	length = 0;
+	for (i = 0; i < num; i++) {
+		int ret = snprintf(&params[length],
+				PARAM_STRLEN + 1,
+				PARAM_STRFMT,
+				init_seq[i]);
+		if (ret < 0)
+			break;
+		length += ret;
+	}
+
+	pr_info("%s: num=%d: %s\n", log, num, params);
+	kfree(params);
+}
+
 struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -3853,6 +3915,20 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 			return NULL;
 		of_property_read_u32_array(node, "qcom,hsusb-otg-phy-init-seq",
 				pdata->phy_init_seq, len);
+		msm_otg_phy_init_dump("HUSB PHY Init", len,
+					pdata->phy_init_seq);
+	}
+	len = of_property_count_elems_of_size(node,
+			"qcom,hsusb-otg-phy-init-seq-host", sizeof(len));
+	if (len > 0) {
+		pdata->phy_init_seq_host = devm_kzalloc(&pdev->dev,
+						len * sizeof(len), GFP_KERNEL);
+		if (!pdata->phy_init_seq_host)
+			return NULL;
+		of_property_read_u32_array(node, "qcom,hsusb-otg-phy-init-seq-host",
+				pdata->phy_init_seq_host, len);
+		msm_otg_phy_init_dump("HUSB PHY Init Host", len,
+					pdata->phy_init_seq_host);
 	}
 	of_property_read_u32(node, "qcom,hsusb-otg-power-budget",
 				&pdata->power_budget);
