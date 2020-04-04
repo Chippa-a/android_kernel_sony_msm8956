@@ -576,7 +576,6 @@
 	};
 
 	usb_otg: usb@78db000 {
-		qcom,usb-switch-sel-gpio = <&pmi8950_gpios 1 0>;
 		qcom,usbin-vadc = <&pmi8950_vadc>;
 	};
 
