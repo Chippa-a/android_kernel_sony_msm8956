@@ -2613,7 +2613,7 @@ static int wl_cfgvendor_dbg_get_version(struct wiphy *wiphy,
 	int ret = BCME_OK, rem, type;
 	int buf_len = 1024;
 	bool dhd_ver = FALSE;
-	char *buf_ptr;
+	char *buf_ptr, *ver, *p;
 	const struct nlattr *iter;
 	gfp_t kflags;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
@@ -2644,8 +2644,16 @@ static int wl_cfgvendor_dbg_get_version(struct wiphy *wiphy,
 		WL_ERR(("failed to get the version %d\n", ret));
 		goto exit;
 	}
+	ver = strstr(buf_ptr, "version ");
+	if (!ver) {
+		WL_ERR(("failed to locate the version\n"));
+		goto exit;
+	}
+	ver += strlen("version ");
+	for (p = ver; (*p != ' ') && (*p != '\n') && (*p != 0); p++)
+		;
 	ret = wl_cfgvendor_send_cmd_reply(wiphy, bcmcfg_to_prmry_ndev(cfg),
-	        buf_ptr, strlen(buf_ptr));
+	        ver, p - ver);
 exit:
 	kfree(buf_ptr);
 	return ret;
