@@ -25,6 +25,8 @@
 
 #define LSM_MAX_NUM_CHANNELS 8
 
+#define LSM_API_VERSION_V2 2
+
 typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, uint16_t client_size, void *priv);
 
