@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1140,9 +1140,12 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 		wcd9xxx_set_intf_type(WCD9XXX_INTERFACE_TYPE_I2C);
 
 		return ret;
+	} else {
+		ret = -EINVAL;
+		pr_err("%s: I2C probe in wrong state, ret %d\n", __func__, ret);
+		goto fail;
 	}
 
-	pr_err("%s: I2C probe in wrong state\n", __func__);
 
 
 err_device_init:
