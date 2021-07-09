@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,9 +127,9 @@ static int msm_ext_disp_audio_type_get(struct snd_kcontrol *kcontrol,
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
 	if (!codec_data ||
-	    !codec_data->ext_disp_ops.get_audio_edid_blk ||
+	    !codec_data->ext_disp_ops.cable_status ||
 	    !codec_data->ext_disp_ops.get_intf_id) {
-		dev_err(codec->dev, "%s: codec_data, get_audio_edid_blk() or get_intf_id is NULL\n",
+		dev_err(codec->dev, "%s: codec_data, cable_status() or get_intf_id is NULL\n",
 			__func__);
 		return -EINVAL;
 	}
