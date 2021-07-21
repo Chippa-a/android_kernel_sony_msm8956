@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@
 #include "msm-pcm-voice-v2.h"
 
 static struct msm_voice voice_info[VOICE_SESSION_INDEX_MAX];
+
+static int voice_probe_done;
 
 static struct snd_pcm_hardware msm_pcm_hardware = {
 
@@ -724,6 +726,7 @@ static int msm_pcm_probe(struct platform_device *pdev)
 	const char *is_destroy_cvd = "qcom,destroy-cvd";
 	const char *is_vote_bms = "qcom,vote-bms";
 
+	voice_probe_done = 0;
 	if (!is_voc_initialized()) {
 		pr_debug("%s: voice module not initialized yet, deferring probe()\n",
 		       __func__);
@@ -755,10 +758,30 @@ static int msm_pcm_probe(struct platform_device *pdev)
 
 	rc = snd_soc_register_platform(&pdev->dev,
 				       &msm_soc_platform);
+	if (!rc) {
+		pr_debug("%s msm_pcm_voice probe success! \n", __func__);
+		voice_probe_done = 1;
+	}
 
 done:
 	return rc;
 }
+
+/**
+ * msm_voice_get_probe_status - Returns the probe
+ * status of msm-pcm-voice.
+ *
+ * Function that returns the probe status of msm-pcm-voice
+ * driver.
+ *
+ * Returns: 1 on probe success, 0 otherwise.
+ */
+int msm_voice_get_probe_status(void)
+{
+	return voice_probe_done;
+}
+
+EXPORT_SYMBOL(msm_voice_get_probe_status);
 
 static int msm_pcm_remove(struct platform_device *pdev)
 {
