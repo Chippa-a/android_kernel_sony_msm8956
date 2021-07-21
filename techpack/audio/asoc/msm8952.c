@@ -31,6 +31,7 @@
 #include "msm-pcm-routing-v2.h"
 #include "codecs/msm-cdc-pinctrl.h"
 #include "msm8952.h"
+#include "msm-pcm-voice-v2.h"
 
 #define DRV_NAME "msm8952-asoc-wcd"
 
@@ -3176,6 +3177,14 @@ parse_mclk_freq:
 		}
 	}
 #endif
+
+	/* Check if voice probe done, defer otherwise */
+	ret = msm_voice_get_probe_status();
+	if (!ret) {
+		pr_debug("%s msm-pcm-voice probe status %d \n", __func__, ret);
+		ret = -EPROBE_DEFER;
+		goto err;
+	}
 
 	card = msm8952_populate_sndcard_dailinks(&pdev->dev);
 	dev_dbg(&pdev->dev, "default codec configured\n");
