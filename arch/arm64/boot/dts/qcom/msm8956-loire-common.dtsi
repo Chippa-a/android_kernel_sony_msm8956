@@ -3273,3 +3273,7 @@
 &qseecom_mem {
 	size = <0 0x1400000>;
 };
+
+&restart_pshold {
+	qcom,force-warm-reboot;
+};
