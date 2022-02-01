@@ -955,7 +955,7 @@ int snd_soc_put_xr_sx(struct snd_kcontrol *kcontrol,
 	long max = mc->max;
 	long val = ucontrol->value.integer.value[0];
 	unsigned int i, regval, regmask;
-	int err;
+	int err, ret = 0;
 
 	if (val < mc->min || val > mc->max)
 		return -EINVAL;
@@ -969,9 +969,11 @@ int snd_soc_put_xr_sx(struct snd_kcontrol *kcontrol,
 				regmask, regval);
 		if (err < 0)
 			return err;
+		if (err > 0)
+			ret = err;
 	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_xr_sx);
 
