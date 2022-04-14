@@ -129,14 +129,6 @@
 			size = <0 0x400000>;
 		};
 
-		audio_mem: audio_region {
-			compatible = "shared-dma-pool";
-			reusable;
-			alloc-ranges = <0 0x00000000 0 0xffffffff>;
-			alignment = <0 0x400000>;
-			size = <0 0x1000000>;
-		};
-
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			reusable;
