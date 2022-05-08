@@ -192,7 +192,7 @@ EXPORT_SYMBOL(qcom_ice_set_fde_flag);
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 
 static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
 {
@@ -294,7 +294,7 @@ static int qcom_ice_bus_register(struct ice_device *ice_dev)
 {
 	return 0;
 }
-#endif /* CONFIG_MSM_BUS_SCALING */
+#endif /* CONFIG_QCOM_BUS_SCALING */
 
 static int qcom_ice_get_vreg(struct ice_device *ice_dev)
 {
