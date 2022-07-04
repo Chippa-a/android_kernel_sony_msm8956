@@ -39,6 +39,12 @@
 
 };
 
+&firmware {
+	android {
+		/delete-node/ fstab;
+	};
+};
+
 &soc {
 	pinctrl@1000000 {
 		disabled-pins = <0 1 2 3>;
