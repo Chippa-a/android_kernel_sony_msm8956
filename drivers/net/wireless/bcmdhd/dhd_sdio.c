@@ -822,7 +822,7 @@ dhdsdio_srwar_init(dhd_bus_t *bus)
 static int
 dhdsdio_sr_init(dhd_bus_t *bus)
 {
-	uint8 val;
+	uint8 __maybe_unused val;
 	int err = 0;
 
 	if ((bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2))
