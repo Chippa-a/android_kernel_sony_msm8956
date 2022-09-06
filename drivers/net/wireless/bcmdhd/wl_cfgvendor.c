@@ -733,7 +733,7 @@ wl_cfgvendor_hotlist_cfg(struct wiphy *wiphy,
 	int err = 0;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	gscan_hotlist_scan_params_t *hotlist_params;
-	int tmp, tmp1, tmp2, type, j = 0, dummy;
+	int tmp, tmp1, tmp2, type, j = 0;
 	const struct nlattr *outer, *inner = NULL, *iter;
 	uint8 flush = 0;
 	struct bssid_t *pbssid;
@@ -813,7 +813,7 @@ wl_cfgvendor_hotlist_cfg(struct wiphy *wiphy,
 							err = -EINVAL;
 							goto exit;
 						}
-						dummy = (int8)nla_get_u8(inner);
+						nla_get_u8(inner);
 						break;
 					default:
 						WL_ERR(("ATTR unknown %d\n", type));
@@ -1244,10 +1244,8 @@ wl_cfgvendor_rtt_set_config(struct wiphy *wiphy, struct wireless_dev *wdev,
 	const struct nlattr *iter, *iter1, *iter2;
 	int8 eabuf[ETHER_ADDR_STR_LEN];
 	int8 chanbuf[CHANSPEC_STR_LEN];
-	int32 feature_set = 0;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	rtt_capabilities_t capability;
-	feature_set = dhd_dev_get_feature_set(bcmcfg_to_prmry_ndev(cfg));
 
 	WL_DBG(("In\n"));
 	err = dhd_dev_rtt_register_noti_callback(wdev->netdev, wdev, wl_cfgvendor_rtt_evt);

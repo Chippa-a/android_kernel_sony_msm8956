@@ -10636,7 +10636,6 @@ static s32 wl_ch_to_chanspec(struct net_device *dev, int ch, struct wl_join_para
 static s32 wl_update_bss_info(struct bcm_cfg80211 *cfg, struct net_device *ndev, bool roam)
 {
 	struct wl_bss_info *bi;
-	struct wlc_ssid *ssid;
 	struct bcm_tlv *tim;
 	s32 beacon_interval;
 	s32 dtim_period;
@@ -10644,13 +10643,9 @@ static s32 wl_update_bss_info(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	u8 *ie;
 	u8 *curbssid;
 	s32 err = 0;
-	struct wiphy *wiphy;
 	u32 channel;
 	char *buf;
 
-	wiphy = bcmcfg_to_wiphy(cfg);
-
-	ssid = (struct wlc_ssid *)wl_read_prof(cfg, ndev, WL_PROF_SSID);
 	curbssid = wl_read_prof(cfg, ndev, WL_PROF_BSSID);
 
 	mutex_lock(&cfg->usr_sync);
