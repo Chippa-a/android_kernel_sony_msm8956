@@ -137,7 +137,6 @@
 
 &labibb {
 	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
 };
 
 &i2c_4 { /* BLSP1 QUP4 */

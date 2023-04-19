@@ -298,5 +298,4 @@
 
 &labibb {
 	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
 };
