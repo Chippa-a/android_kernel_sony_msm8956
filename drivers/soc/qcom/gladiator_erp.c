@@ -95,6 +95,7 @@ struct msm_gladiator_data {
 	struct clk *qdss_clk;
 	struct reg_off *reg_offs;
 	struct reg_masks_shift *reg_masks_shifts;
+	bool glad_v1;
 	bool glad_v2;
 	bool glad_v3;
 };
@@ -739,7 +740,7 @@ static void parse_gld_err_regs(struct msm_gladiator_data *msm_gld_data,
 		/* skip log register 7 as its reserved */
 		if (err_log == ERR_LOG7)
 			continue;
-		if (err_log == ERR_LOG5) {
+		if (!msm_gld_data->glad_v1 && err_log == ERR_LOG5) {
 			decode_gld_errlog5(msm_gld_data);
 			continue;
 		}
@@ -754,7 +755,7 @@ static void parse_obsrv_err_regs(struct msm_gladiator_data *msm_gld_data,
 	unsigned int err_log;
 
 	pr_alert("Observor error log register data:\n");
-	if (msm_gld_data->glad_v2) {
+	if (msm_gld_data->glad_v1 || msm_gld_data->glad_v2) {
 		for (err_log = ERR_LOG0; err_log <= STALLEN; err_log++)	{
 			/* skip log register 2, 6 and 8 as they are reserved */
 			if ((err_log == ERR_LOG2) || (err_log == ERR_LOG6)
@@ -821,6 +822,7 @@ static irqreturn_t msm_gladiator_isr(int irq, void *dev_id)
 }
 
 static const struct of_device_id gladiator_erp_match_table[] = {
+	{ .compatible = "qcom,msm-gladiator" },
 	{ .compatible = "qcom,msm-gladiator-v2" },
 	{ .compatible = "qcom,msm-gladiator-v3" },
 	{},
@@ -895,6 +897,57 @@ static int gladiator_erp_pm_callback(struct notifier_block *nb,
 	}
 
 	return NOTIFY_OK;
+}
+
+static void init_offsets_and_masks_v1(struct msm_gladiator_data *msm_gld_data)
+{
+	msm_gld_data->reg_offs->gladiator_id_coreid		= 0x0;
+	msm_gld_data->reg_offs->gladiator_id_revisionid		= 0x4;
+	msm_gld_data->reg_offs->gladiator_faulten		= 0x48;
+	msm_gld_data->reg_offs->gladiator_errvld		= 0x4C;
+	msm_gld_data->reg_offs->gladiator_errclr		= 0x50;
+	msm_gld_data->reg_offs->gladiator_errlog0		= 0x54;
+	msm_gld_data->reg_offs->gladiator_errlog1		= 0x58;
+	msm_gld_data->reg_offs->gladiator_errlog2		= 0x5C;
+	msm_gld_data->reg_offs->gladiator_errlog3		= 0x60;
+	msm_gld_data->reg_offs->gladiator_errlog4		= 0x64;
+	msm_gld_data->reg_offs->gladiator_errlog5		= 0x68;
+	msm_gld_data->reg_offs->gladiator_errlog6		= 0x6C;
+	msm_gld_data->reg_offs->gladiator_errlog7		= 0x70;
+	msm_gld_data->reg_offs->gladiator_errlog8		= 0x74;
+	msm_gld_data->reg_offs->observer_0_id_coreid		= 0x1000;
+	msm_gld_data->reg_offs->observer_0_id_revisionid	= 0x1004;
+	msm_gld_data->reg_offs->observer_0_faulten		= 0x1008;
+	msm_gld_data->reg_offs->observer_0_errvld		= 0x100C;
+	msm_gld_data->reg_offs->observer_0_errclr		= 0x1010;
+	msm_gld_data->reg_offs->observer_0_errlog0		= 0x1014;
+	msm_gld_data->reg_offs->observer_0_errlog1		= 0x1018;
+	msm_gld_data->reg_offs->observer_0_errlog2		= 0x101C;
+	msm_gld_data->reg_offs->observer_0_errlog3		= 0x1020;
+	msm_gld_data->reg_offs->observer_0_errlog4		= 0x1024;
+	msm_gld_data->reg_offs->observer_0_errlog5		= 0x1028;
+	msm_gld_data->reg_offs->observer_0_errlog6		= 0x102C;
+	msm_gld_data->reg_offs->observer_0_errlog7		= 0x1030;
+	msm_gld_data->reg_offs->observer_0_errlog8		= 0x1034;
+	msm_gld_data->reg_offs->observer_0_stallen		= 0x1038;
+
+	msm_gld_data->reg_masks_shifts->gld_trans_opcode_mask = 0xE;
+	msm_gld_data->reg_masks_shifts->gld_trans_opcode_shift = 1;
+	msm_gld_data->reg_masks_shifts->gld_error_type_mask = 0x700;
+	msm_gld_data->reg_masks_shifts->gld_error_type_shift = 8;
+	msm_gld_data->reg_masks_shifts->gld_len1_mask = 0x7FF8;
+	msm_gld_data->reg_masks_shifts->gld_len1_shift = 16;
+	msm_gld_data->reg_masks_shifts->gld_trans_sourceid_mask = 0x7;
+	msm_gld_data->reg_masks_shifts->gld_trans_sourceid_shift = 0;
+	msm_gld_data->reg_masks_shifts->gld_trans_targetid_mask = 0x7;
+	msm_gld_data->reg_masks_shifts->gld_trans_targetid_shift = 0;
+	msm_gld_data->reg_masks_shifts->gld_errlog_error = 0x7;
+	msm_gld_data->reg_masks_shifts->obs_trans_opcode_mask = 0x1E;
+	msm_gld_data->reg_masks_shifts->obs_trans_opcode_shift = 1;
+	msm_gld_data->reg_masks_shifts->obs_error_type_mask = 0x700;
+	msm_gld_data->reg_masks_shifts->obs_error_type_shift = 8;
+	msm_gld_data->reg_masks_shifts->obs_len1_mask = 0x7F0;
+	msm_gld_data->reg_masks_shifts->obs_len1_shift = 16;
 }
 
 static void init_offsets_and_masks_v2(struct msm_gladiator_data *msm_gld_data)
@@ -1043,12 +1096,16 @@ static int gladiator_erp_probe(struct platform_device *pdev)
 		goto bail;
 	}
 
+	msm_gld_data->glad_v1 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,msm-gladiator");
 	msm_gld_data->glad_v2 = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,msm-gladiator-v2");
 	msm_gld_data->glad_v3 = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,msm-gladiator-v3");
 
-	if (msm_gld_data->glad_v2)
+	if (msm_gld_data->glad_v1)
+		init_offsets_and_masks_v1(msm_gld_data);
+	else if (msm_gld_data->glad_v2)
 		init_offsets_and_masks_v2(msm_gld_data);
 	else if (msm_gld_data->glad_v3)
 		init_offsets_and_masks_v3(msm_gld_data);
