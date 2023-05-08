@@ -531,34 +531,38 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				__func__, params_channels(params),
 				prtd->audio_client->perf_mode);
 
-		if (q6core_get_avcs_api_version_per_service(
-				APRV2_IDS_SERVICE_ID_ADSP_ASM_V) >=
-				ADSP_ASM_API_VERSION_V2) {
-			ret = q6asm_open_read_v5(prtd->audio_client,
-				FORMAT_LINEAR_PCM,
-				bits_per_sample, false, ENC_CFG_ID_NONE);
+		if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
+				q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
+			ret = q6asm_open_read_v3(prtd->audio_client,
+				FORMAT_LINEAR_PCM, bits_per_sample);
+			if (ret < 0) {
+				pr_err("%s: q6asm_open_read failed\n", __func__);
+				q6asm_audio_client_free(prtd->audio_client);
+				prtd->audio_client = NULL;
+				return -ENOMEM;
+			}
 		} else {
-			if (q6core_get_avs_version() == Q6_SUBSYS_AVS2_6 ||
-					q6core_get_avs_version() == Q6_SUBSYS_AVS2_7) {
-				ret = q6asm_open_read_v3(prtd->audio_client,
+			if (q6core_get_avcs_api_version_per_service(
+					APRV2_IDS_SERVICE_ID_ADSP_ASM_V) >=
+					ADSP_ASM_API_VERSION_V2)
+				ret = q6asm_open_read_v5(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
-					bits_per_sample);
-			} else {
+					bits_per_sample, false, ENC_CFG_ID_NONE);
+			else
 				ret = q6asm_open_read_v4(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
 					bits_per_sample, false);
+			if (ret < 0) {
+				pr_err("%s: q6asm_open_read failed\n", __func__);
+				q6asm_audio_client_free(prtd->audio_client);
+				prtd->audio_client = NULL;
+				return -ENOMEM;
 			}
-		}
-		if (ret < 0) {
-			pr_err("%s: q6asm_open_read failed\n", __func__);
-			q6asm_audio_client_free(prtd->audio_client);
-			prtd->audio_client = NULL;
-			return -ENOMEM;
-		}
 
-		ret = q6asm_send_cal(prtd->audio_client);
-		if (ret < 0)
-			pr_debug("%s : Send cal failed : %d", __func__, ret);
+			ret = q6asm_send_cal(prtd->audio_client);
+			if (ret < 0)
+				pr_debug("%s : Send cal failed : %d", __func__, ret);
+		}
 
 		pr_debug("%s: session ID %d\n",
 				__func__, prtd->audio_client->session);
