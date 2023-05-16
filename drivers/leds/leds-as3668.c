@@ -28,6 +28,8 @@
 #include <linux/delay.h>
 #include <linux/leds-as3668.h>
 
+#define AS3668_DRV_NAME	"as3668"
+
 #define AS3668_USE_PREDEFINED_PATTERNS 1
 
 #if (AS3668_USE_PREDEFINED_PATTERNS == 1)
@@ -144,6 +146,7 @@ struct as3668_data {
 	struct as3668_led leds[AS3668_NUM_LEDS];
 	struct as3668_reg regs[255];
 	struct delayed_work pwm_finished_work;
+	struct led_classdev	led_cdev;
 	int num_leds;
 	int pattern_running;
 	int dimming_in_progress;
@@ -451,16 +454,6 @@ static int device_add_attributes(struct device *dev,
 	return error;
 }
 
-static void device_remove_attributes(struct device *dev,
-		struct device_attribute *attrs)
-{
-	int i;
-
-	if (attrs)
-		for (i = 0; attrs[i].attr.name; i++)
-			device_remove_file(dev, &attrs[i]);
-}
-
 static int as3668_set_pattern_ton(struct as3668_data *data, u16 ton_time)
 {
 	int i, curr_best = 0, delta;
@@ -549,7 +542,7 @@ static void as3668_pwm_finished_work(struct work_struct  *work)
 static ssize_t as3668_debug_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	size_t ps = PAGE_SIZE, cw = 0;
 	u8 cr;
 	int i = 0;
@@ -580,7 +573,7 @@ static ssize_t as3668_debug_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	u8 reg, val;
 
@@ -596,7 +589,7 @@ static ssize_t as3668_debug_store(struct device *dev,
 static ssize_t as3668_pattern_pwm_dim_speed_down_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n",	dim_speed2time[data->pwm_dim_speed_down]);
@@ -607,7 +600,7 @@ static ssize_t as3668_pattern_pwm_dim_speed_down_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int dim_time, i, curr_best = 0, delta;
 
 	i = sscanf(buf, "%d", &dim_time);
@@ -630,7 +623,7 @@ static ssize_t as3668_pattern_pwm_dim_speed_down_ms_store(struct device *dev,
 static ssize_t as3668_pattern_pwm_dim_speed_up_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 		"%d\n",	dim_speed2time[data->pwm_dim_speed_up]);
@@ -641,7 +634,7 @@ static ssize_t as3668_pattern_pwm_dim_speed_up_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int dim_time, i, curr_best = 0, delta;
 
 	i = sscanf(buf, "%d", &dim_time);
@@ -665,7 +658,7 @@ static ssize_t as3668_pattern_pwm_dim_speed_up_ms_store(struct device *dev,
 static ssize_t as3668_pattern_time_on_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", (int)data->pattern_on_time);
 	return strnlen(buf, PAGE_SIZE);
@@ -675,7 +668,7 @@ static ssize_t as3668_pattern_time_on_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_ton;
 
@@ -691,7 +684,7 @@ static ssize_t as3668_pattern_time_on_ms_store(struct device *dev,
 static ssize_t as3668_pattern_time_on_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", pattern_ton_time[data->pattern_ton]);
 	return strnlen(buf, PAGE_SIZE);
@@ -701,7 +694,7 @@ static ssize_t as3668_pattern_time_on_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, err;
 	int pattern_ton;
 
@@ -719,7 +712,7 @@ static ssize_t as3668_pattern_time_on_ms_store(struct device *dev,
 static ssize_t as3668_pattern_time_off_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", (int)data->pattern_off_time);
 	return strnlen(buf, PAGE_SIZE);
@@ -729,7 +722,7 @@ static ssize_t as3668_pattern_time_off_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_toff;
 
@@ -745,7 +738,7 @@ static ssize_t as3668_pattern_time_off_ms_store(struct device *dev,
 static ssize_t as3668_pattern_time_off_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", pattern_toff_time[data->pattern_toff]);
 	return strnlen(buf, PAGE_SIZE);
@@ -755,7 +748,7 @@ static ssize_t as3668_pattern_time_off_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, err;
 	int pattern_toff;
 
@@ -772,7 +765,7 @@ static ssize_t as3668_pattern_time_off_ms_store(struct device *dev,
 static ssize_t as3668_pattern_source_mask_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "0x%x\n", data->pattern_source_mask);
 	return strnlen(buf, PAGE_SIZE);
@@ -782,7 +775,7 @@ static ssize_t as3668_pattern_source_mask_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_mask;
 
@@ -800,7 +793,7 @@ static ssize_t as3668_pattern_source_mask_store(struct device *dev,
 static ssize_t as3668_pattern_multiple_pulse_number_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->pattern_multiple_pulse + 1);
 	return strnlen(buf, PAGE_SIZE);
@@ -810,7 +803,7 @@ static ssize_t as3668_pattern_multiple_pulse_number_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_pulse;
 
@@ -826,7 +819,7 @@ static ssize_t as3668_pattern_multiple_pulse_number_store(struct device *dev,
 static ssize_t as3668_pattern_tp_led_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", tp_led_time[data->pattern_tp_led]);
 	return strnlen(buf, PAGE_SIZE);
@@ -836,7 +829,7 @@ static ssize_t as3668_pattern_tp_led_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, curr_best = 0, delta;
 	int value;
 
@@ -860,7 +853,7 @@ static ssize_t as3668_pattern_tp_led_ms_store(struct device *dev,
 static ssize_t as3668_pattern_fade_out_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->pattern_fade_out);
 	return strnlen(buf, PAGE_SIZE);
@@ -870,7 +863,7 @@ static ssize_t as3668_pattern_fade_out_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_fadeout;
 
@@ -886,7 +879,7 @@ static ssize_t as3668_pattern_fade_out_store(struct device *dev,
 static ssize_t as3668_pattern_run_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->pattern_run);
 	return strnlen(buf, PAGE_SIZE);
@@ -897,7 +890,7 @@ static ssize_t as3668_pattern_run_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	struct as3668_led *led;
 	int i;
 	int pattern_run;
@@ -971,7 +964,7 @@ static ssize_t as3668_pattern_run_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pattern_run;
 
@@ -1028,7 +1021,7 @@ static ssize_t as3668_pattern_run_store(struct device *dev,
 static ssize_t as3668_pwm_dim_mask_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "0x%x\n", data->pwm_dim_mask);
 	return strnlen(buf, PAGE_SIZE);
@@ -1038,7 +1031,7 @@ static ssize_t as3668_pwm_dim_mask_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pwm_mask;
 
@@ -1056,7 +1049,7 @@ static ssize_t as3668_pwm_dim_mask_store(struct device *dev,
 static ssize_t as3668_pwm_dim_shape_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d (0.. logarithmic ramp, 1.. linear ramp)\n",
 			data->pwm_dim_shape);
@@ -1067,7 +1060,7 @@ static ssize_t as3668_pwm_dim_shape_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pwm_shape;
 
@@ -1083,7 +1076,7 @@ static ssize_t as3668_pwm_dim_shape_store(struct device *dev,
 static ssize_t as3668_pwm_dim_direction_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d (0.. dim_down, 1.. dim_up)\n",
 			data->pwm_dim_direction);
@@ -1094,7 +1087,7 @@ static ssize_t as3668_pwm_dim_direction_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pwm_dir;
 
@@ -1110,7 +1103,7 @@ static ssize_t as3668_pwm_dim_direction_store(struct device *dev,
 static ssize_t as3668_pwm_dim_start_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->pattern_running);
 	return strnlen(buf, PAGE_SIZE);
@@ -1120,7 +1113,7 @@ static ssize_t as3668_pwm_dim_start_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int pwm_start;
 	u8 direction;
@@ -1196,7 +1189,7 @@ static ssize_t as3668_pwm_dim_start_store(struct device *dev,
 static ssize_t as3668_cp_clock_khz_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->cp_clock);
@@ -1207,7 +1200,7 @@ static ssize_t as3668_cp_clock_khz_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, cp_clock;
 	u8 cp_clock_bit;
 
@@ -1233,7 +1226,7 @@ static ssize_t as3668_cp_clock_khz_store(struct device *dev,
 static ssize_t as3668_cp_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->cp_on);
@@ -1244,7 +1237,7 @@ static ssize_t as3668_cp_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, cp_on;
 
 	i = sscanf(buf, "%d", &cp_on);
@@ -1262,7 +1255,7 @@ static ssize_t as3668_cp_on_store(struct device *dev,
 static ssize_t as3668_cp_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->cp_mode);
@@ -1273,7 +1266,7 @@ static ssize_t as3668_cp_mode_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, cp_mode;
 
 	i = sscanf(buf, "%d", &cp_mode);
@@ -1291,7 +1284,7 @@ static ssize_t as3668_cp_mode_store(struct device *dev,
 static ssize_t as3668_cp_mode_switching_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->cp_mode_switching);
@@ -1302,7 +1295,7 @@ static ssize_t as3668_cp_mode_switching_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, cp_mode_sw;
 
 	i = sscanf(buf, "%d", &cp_mode_sw);
@@ -1320,7 +1313,7 @@ static ssize_t as3668_cp_mode_switching_store(struct device *dev,
 static ssize_t as3668_cp_auto_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->cp_auto_on);
@@ -1331,7 +1324,7 @@ static ssize_t as3668_cp_auto_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, cp_auto_on;
 
 	i = sscanf(buf, "%d", &cp_auto_on);
@@ -1349,7 +1342,7 @@ static ssize_t as3668_cp_auto_on_store(struct device *dev,
 static ssize_t as3668_gpio_input_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	u8 gpio_in;
 
 	gpio_in = i2c_smbus_read_byte_data(data->client,
@@ -1369,7 +1362,7 @@ static ssize_t as3668_gpio_input_state_store(struct device *dev,
 static ssize_t as3668_gpio_output_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->gpio_output_state);
@@ -1380,7 +1373,7 @@ static ssize_t as3668_gpio_output_state_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, gpio_out;
 
 	i = sscanf(buf, "%d", &gpio_out);
@@ -1398,7 +1391,7 @@ static ssize_t as3668_gpio_output_state_store(struct device *dev,
 static ssize_t as3668_gpio_toggle_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->gpio_toggle_enable);
@@ -1409,7 +1402,7 @@ static ssize_t as3668_gpio_toggle_enable_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1427,7 +1420,7 @@ static ssize_t as3668_gpio_toggle_enable_store(struct device *dev,
 static ssize_t as3668_gpio_toggle_frame_nr_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE,
 	"%d\n", data->gpio_toggle_frame_nr+1);
@@ -1438,7 +1431,7 @@ static ssize_t as3668_gpio_toggle_frame_nr_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1460,7 +1453,7 @@ static ssize_t as3668_gpio_toggle_frame_nr_store(struct device *dev,
 static ssize_t as3668_audio_agc_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_agc_on);
 	return strnlen(buf, PAGE_SIZE);
@@ -1470,7 +1463,7 @@ static ssize_t as3668_audio_agc_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	 int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1488,7 +1481,7 @@ static ssize_t as3668_audio_agc_on_store(struct device *dev,
 static ssize_t as3668_audio_agc_down_level_inc_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_agc_down_level);
 	return strnlen(buf, PAGE_SIZE);
@@ -1498,7 +1491,7 @@ static ssize_t as3668_audio_agc_down_level_inc_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	 int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1518,7 +1511,7 @@ static ssize_t as3668_audio_agc_down_level_inc_store(struct device *dev,
 static ssize_t as3668_audio_agc_up_level_inc_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_agc_up_level);
 	return strnlen(buf, PAGE_SIZE);
@@ -1528,7 +1521,7 @@ static ssize_t as3668_audio_agc_up_level_inc_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	 int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1548,7 +1541,7 @@ static ssize_t as3668_audio_agc_up_level_inc_store(struct device *dev,
 static ssize_t as3668_audio_agc_decay_down_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n",
 			agc_decay_down_time[data->audio_agc_decay_down]);
@@ -1559,7 +1552,7 @@ static ssize_t as3668_audio_agc_decay_down_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value, curr_best = 0, delta;
 
 	i = sscanf(buf, "%d", &value);
@@ -1585,7 +1578,7 @@ static ssize_t as3668_audio_agc_decay_down_ms_store(struct device *dev,
 static ssize_t as3668_audio_agc_decay_up_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n",
 			agc_decay_up_time[data->audio_agc_decay_up]);
@@ -1596,7 +1589,7 @@ static ssize_t as3668_audio_agc_decay_up_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value, curr_best = 0, delta;
 
 	i = sscanf(buf, "%d", &value);
@@ -1621,7 +1614,7 @@ static ssize_t as3668_audio_agc_decay_up_ms_store(struct device *dev,
 static ssize_t as3668_audio_decay_ms_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", audio_decay_time[data->audio_decay]);
 	return strnlen(buf, PAGE_SIZE);
@@ -1631,7 +1624,7 @@ static ssize_t as3668_audio_decay_ms_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value, curr_best = 0, delta;
 
 	i = sscanf(buf, "%d", &value);
@@ -1656,7 +1649,7 @@ static ssize_t as3668_audio_decay_ms_store(struct device *dev,
 static ssize_t as3668_audio_sync_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_sync_mode);
 	return strnlen(buf, PAGE_SIZE);
@@ -1666,7 +1659,7 @@ static ssize_t as3668_audio_sync_mode_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	 int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1691,7 +1684,7 @@ static ssize_t as3668_audio_sync_mode_store(struct device *dev,
 static ssize_t as3668_audio_gain_dB_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_gain);
 	return strnlen(buf, PAGE_SIZE);
@@ -1701,7 +1694,7 @@ static ssize_t as3668_audio_gain_dB_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1721,7 +1714,7 @@ static ssize_t as3668_audio_gain_dB_store(struct device *dev,
 static ssize_t as3668_audio_buffer_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_buffer_on);
 	return strnlen(buf, PAGE_SIZE);
@@ -1731,7 +1724,7 @@ static ssize_t as3668_audio_buffer_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1749,7 +1742,7 @@ static ssize_t as3668_audio_buffer_on_store(struct device *dev,
 static ssize_t as3668_audio_adc_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_adc_on);
 	return strnlen(buf, PAGE_SIZE);
@@ -1759,7 +1752,7 @@ static ssize_t as3668_audio_adc_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1777,7 +1770,7 @@ static ssize_t as3668_audio_adc_on_store(struct device *dev,
 static ssize_t as3668_audio_adc_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_adc_mode);
 	return strnlen(buf, PAGE_SIZE);
@@ -1787,7 +1780,7 @@ static ssize_t as3668_audio_adc_mode_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1805,7 +1798,7 @@ static ssize_t as3668_audio_adc_mode_store(struct device *dev,
 static ssize_t as3668_audio_src_mask_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "0x%x\n", data->audio_src_mask);
 	return strnlen(buf, PAGE_SIZE);
@@ -1815,7 +1808,7 @@ static ssize_t as3668_audio_src_mask_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i;
 	int mask;
 
@@ -1833,7 +1826,7 @@ static ssize_t as3668_audio_src_mask_store(struct device *dev,
 static ssize_t as3668_audio_on_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->audio_on);
 	return strnlen(buf, PAGE_SIZE);
@@ -1843,7 +1836,7 @@ static ssize_t as3668_audio_on_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value;
 
 	i = sscanf(buf, "%d", &value);
@@ -1894,7 +1887,7 @@ static ssize_t as3668_audio_on_store(struct device *dev,
 static ssize_t as3668_pattern_predef_run_num_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 
 	snprintf(buf, PAGE_SIZE, "%d\n", data->pattern_predef_run_num);
 	return strnlen(buf, PAGE_SIZE);
@@ -1904,7 +1897,7 @@ static ssize_t as3668_pattern_predef_run_num_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct as3668_data *data = dev_get_drvdata(dev);
+	struct as3668_data *data = dev_get_drvdata(dev->parent);
 	int i, value, max_pattern_num;
 	u8 pattern_size;
 
@@ -2483,16 +2476,27 @@ static int as3668_configure(struct i2c_client *client,
 
 	INIT_DELAYED_WORK(&data->pwm_finished_work, as3668_pwm_finished_work);
 
-	err = device_add_attributes(&client->dev, as3668_attributes);
-
-	if (err)
-		goto exit_ledreg;
+	data->led_cdev.name = AS3668_DRV_NAME;
+	err = led_classdev_register(&client->dev, &data->led_cdev);
+	if (err != 0) {
+		dev_err(&client->dev,
+					"unable to register AS3668 LED %d\n", err);
+		goto exit;
+	} else {
+		err = device_add_attributes(data->led_cdev.dev, as3668_attributes);
+		if (err < 0) {
+			dev_err(&client->dev,
+					"unable to add attributes %d\n", err);
+			goto exit_ledreg;
+		}
+	}
 
 	return 0;
 
 exit_ledreg:
 	for (i = 0; i < AS3668_NUM_LEDS; i++)
 		led_classdev_unregister(&data->leds[i].ldev);
+	led_classdev_unregister(&data->led_cdev);
 exit:
 	return err;
 }
@@ -2796,7 +2800,7 @@ static int as3668_remove(struct i2c_client *client)
 
 	for (i = 0; i < AS3668_NUM_LEDS; i++)
 		led_classdev_unregister(&data->leds[i].ldev);
-	device_remove_attributes(&client->dev, as3668_attributes);
+	led_classdev_unregister(&data->led_cdev);
 	flush_scheduled_work();
 	kfree(data);
 	i2c_set_clientdata(client, NULL);
@@ -2805,13 +2809,13 @@ static int as3668_remove(struct i2c_client *client)
 
 #ifdef CONFIG_LEDS_AS3668_EXTENSION
 static const struct of_device_id as3668_dt_ids[] = {
-	{ .compatible = "as3668", },
+	{ .compatible = AS3668_DRV_NAME, },
 	{ }
 };
 #endif /* CONFIG_LEDS_AS3668_EXTENSION */
 
 static const struct i2c_device_id as3668_id[] = {
-	{ "as3668", 0 },
+	{ AS3668_DRV_NAME, 0 },
 	{ }
 };
 
@@ -2822,7 +2826,7 @@ static struct i2c_driver as3668_driver = {
 #ifdef CONFIG_LEDS_AS3668_EXTENSION
 		.owner	= THIS_MODULE,
 #endif /* CONFIG_LEDS_AS3668_EXTENSION */
-		.name   = "as3668",
+		.name   = AS3668_DRV_NAME,
 #ifdef CONFIG_LEDS_AS3668_EXTENSION
 		.of_match_table = of_match_ptr(as3668_dt_ids),
 #endif /* CONFIG_LEDS_AS3668_EXTENSION */
