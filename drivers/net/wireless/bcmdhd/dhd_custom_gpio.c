@@ -51,7 +51,7 @@
 
 #ifdef GET_CUSTOM_MAC_ENABLE
 #define MACADDR_BUF_LEN 64
-#define MACADDR_PATH "/data/etc/wlan_macaddr0"
+#define MACADDR_PATH "/data/vendor/etc/wlan_macaddr0"
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
 #if defined(OOB_INTR_ONLY)

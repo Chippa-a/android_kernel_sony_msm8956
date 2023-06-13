@@ -29,14 +29,14 @@ typedef enum somc_nv_item {
 
 /* Paths to miscTA import files */
 static const char *somc_ta_paths[] = {
-	"/data/etc/wlan_txpower_2_4g",
-	"/data/etc/wlan_txpower_5g_low",
-	"/data/etc/wlan_txpower_5g_mid",
-	"/data/etc/wlan_txpower_5g_high",
-	"/data/etc/wlan_txpower_co1_2_4g",
-	"/data/etc/wlan_txpower_co1_5g_low",
-	"/data/etc/wlan_txpower_co1_5g_mid",
-	"/data/etc/wlan_txpower_co1_5g_high",
+	"/data/vendor/etc/wlan_txpower_2_4g",
+	"/data/vendor/etc/wlan_txpower_5g_low",
+	"/data/vendor/etc/wlan_txpower_5g_mid",
+	"/data/vendor/etc/wlan_txpower_5g_high",
+	"/data/vendor/etc/wlan_txpower_co1_2_4g",
+	"/data/vendor/etc/wlan_txpower_co1_5g_low",
+	"/data/vendor/etc/wlan_txpower_co1_5g_mid",
+	"/data/vendor/etc/wlan_txpower_co1_5g_high",
 };
 
 #define SOMC_NV_IS_5G(i) (i % 4 == 0 ? 0 : 1)
